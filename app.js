@@ -1341,3 +1341,139 @@ function setupNavigation() {
 setupNavigation();
 
 setupHomeEvents();
+
+
+
+
+/* =========================================================
+   TASKA — PERSIST TELEGRAM USER ON HOME
+   Fix: username & profile photo disappearing after navigation
+========================================================= */
+
+(function () {
+
+  const taskaTelegramUser =
+    window.Telegram?.WebApp?.initDataUnsafe?.user || null;
+
+  if (!taskaTelegramUser) return;
+
+  function applyTaskaUser() {
+
+    const user = taskaTelegramUser;
+
+    /* -------------------------
+       USERNAME
+    ------------------------- */
+
+    const usernameElements = document.querySelectorAll(
+      "#username, .username"
+    );
+
+    usernameElements.forEach((el) => {
+
+      const displayName =
+        user.username
+          ? "@" + user.username
+          : [user.first_name, user.last_name]
+              .filter(Boolean)
+              .join(" ");
+
+      if (displayName) {
+        el.textContent = displayName;
+      }
+
+    });
+
+
+    /* -------------------------
+       PROFILE PHOTO
+    ------------------------- */
+
+    const avatarElements = document.querySelectorAll(
+      "#avatar, .avatar"
+    );
+
+    avatarElements.forEach((avatar) => {
+
+      if (user.photo_url) {
+
+        // If avatar is an IMG
+        if (avatar.tagName === "IMG") {
+
+          avatar.src = user.photo_url;
+          avatar.alt = "Profile";
+
+        }
+
+        // If avatar is a DIV
+        else {
+
+          avatar.style.backgroundImage =
+            `url("${user.photo_url}")`;
+
+          avatar.style.backgroundSize = "cover";
+          avatar.style.backgroundPosition = "center";
+          avatar.style.backgroundRepeat = "no-repeat";
+
+          // Remove default T
+          avatar.textContent = "";
+
+        }
+
+      }
+
+    });
+
+  }
+
+
+  /* First load */
+  applyTaskaUser();
+
+
+  /* -------------------------
+     WATCH FOR HOME RE-RENDER
+  ------------------------- */
+
+  const taskaObserver = new MutationObserver(() => {
+
+    applyTaskaUser();
+
+  });
+
+
+  taskaObserver.observe(document.body, {
+
+    childList: true,
+    subtree: true
+
+  });
+
+
+  /* -------------------------
+     ALSO APPLY AFTER NAVIGATION
+  ------------------------- */
+
+  document.addEventListener("click", function (event) {
+
+    const navButton =
+      event.target.closest(".nav-btn");
+
+    if (!navButton) return;
+
+    // Give Home renderer time to rebuild the page
+    setTimeout(() => {
+
+      if (
+        navButton.dataset.page === "Home"
+      ) {
+
+        applyTaskaUser();
+
+      }
+
+    }, 50);
+
+  });
+
+})();
