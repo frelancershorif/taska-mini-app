@@ -1,0 +1,616 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0b0f14;
+  --card: #121820;
+  --card-2: #171f29;
+  --text: #ffffff;
+  --muted: #8d99a8;
+  --accent: #4f8cff;
+  --accent-2: #6b5cff;
+  --border: rgba(255, 255, 255, 0.07);
+  --success: #39d98a;
+  --danger: #ff5c6c;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
+
+  background: var(--bg);
+  color: var(--text);
+
+  min-height: 100vh;
+
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.app {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 18px 16px 100px;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.user-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.avatar {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+
+  border-radius: 50%;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent),
+      var(--accent-2)
+    );
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+  font-weight: 700;
+
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hello {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+
+.username {
+  max-width: 220px;
+
+  font-size: 17px;
+  font-weight: 700;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification {
+  width: 42px;
+  height: 42px;
+
+  flex: 0 0 42px;
+
+  border-radius: 14px;
+
+  background: var(--card);
+  color: var(--text);
+
+  border: 1px solid var(--border);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 19px;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.notification:active {
+  transform: scale(0.94);
+}
+
+/* =========================
+   BALANCE
+========================= */
+
+.balance-card {
+  position: relative;
+  overflow: hidden;
+
+  padding: 22px;
+
+  border-radius: 24px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #172238,
+      #121925
+    );
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  margin-bottom: 18px;
+}
+
+.balance-card::after {
+  content: "";
+
+  position: absolute;
+
+  width: 170px;
+  height: 170px;
+
+  border-radius: 50%;
+
+  background: rgba(79, 140, 255, 0.08);
+
+  right: -75px;
+  top: -75px;
+
+  pointer-events: none;
+}
+
+.balance-label {
+  position: relative;
+  z-index: 1;
+
+  color: #aab5c4;
+
+  font-size: 13px;
+
+  margin-bottom: 7px;
+}
+
+.balance {
+  position: relative;
+  z-index: 1;
+
+  font-size: 34px;
+  font-weight: 800;
+
+  letter-spacing: -1px;
+
+  margin-bottom: 18px;
+}
+
+.balance-bottom {
+  position: relative;
+  z-index: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+}
+
+.today {
+  color: #aab5c4;
+  font-size: 13px;
+}
+
+.today strong {
+  display: block;
+
+  color: var(--success);
+
+  margin-top: 3px;
+
+  font-size: 15px;
+}
+
+.withdraw-btn {
+  border: none;
+
+  background: #ffffff;
+  color: #10151b;
+
+  padding: 11px 16px;
+
+  border-radius: 12px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.withdraw-btn:active {
+  transform: scale(0.95);
+}
+
+.withdraw-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =========================
+   SECTION
+========================= */
+
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  margin: 23px 2px 12px;
+}
+
+.section-title h2 {
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.section-title span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* =========================
+   EARN CARDS
+========================= */
+
+.earn-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 11px;
+}
+
+.earn-card {
+  width: 100%;
+
+  background: var(--card);
+
+  color: var(--text);
+
+  border: 1px solid var(--border);
+
+  border-radius: 18px;
+
+  padding: 17px;
+
+  min-height: 125px;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.earn-card:active {
+  transform: scale(0.97);
+}
+
+.earn-card:hover {
+  border-color: rgba(79, 140, 255, 0.25);
+}
+
+.earn-icon {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 13px;
+
+  background: var(--card-2);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 20px;
+
+  margin-bottom: 13px;
+}
+
+.earn-name {
+  font-size: 14px;
+  font-weight: 700;
+
+  margin-bottom: 5px;
+}
+
+.earn-desc {
+  color: var(--muted);
+
+  font-size: 11px;
+
+  line-height: 1.45;
+}
+
+/* =========================
+   STATISTICS
+========================= */
+
+.stats {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 11px;
+}
+
+.stat-card {
+  background: var(--card);
+
+  border: 1px solid var(--border);
+
+  border-radius: 18px;
+
+  padding: 17px;
+}
+
+.stat-label {
+  color: var(--muted);
+
+  font-size: 11px;
+
+  margin-bottom: 7px;
+}
+
+.stat-value {
+  font-size: 19px;
+
+  font-weight: 750;
+}
+
+/* =========================
+   TRANSACTIONS
+========================= */
+
+.transactions {
+  background: var(--card);
+
+  border: 1px solid var(--border);
+
+  border-radius: 18px;
+
+  overflow: hidden;
+}
+
+.empty {
+  padding: 27px 15px;
+
+  text-align: center;
+
+  color: var(--muted);
+
+  font-size: 13px;
+}
+
+.empty-icon {
+  font-size: 26px;
+
+  margin-bottom: 8px;
+
+  opacity: 0.7;
+}
+
+/* =========================
+   BOTTOM NAVIGATION
+========================= */
+
+.bottom-nav {
+  position: fixed;
+
+  left: 50%;
+  bottom: 10px;
+
+  transform: translateX(-50%);
+
+  width: calc(100% - 22px);
+
+  max-width: 578px;
+
+  padding: 8px;
+
+  border-radius: 20px;
+
+  background: rgba(18, 24, 32, 0.94);
+
+  border: 1px solid var(--border);
+
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(5, minmax(0, 1fr));
+
+  z-index: 100;
+}
+
+.nav-btn {
+  border: none;
+
+  background: transparent;
+
+  color: var(--muted);
+
+  min-height: 55px;
+
+  border-radius: 14px;
+
+  cursor: pointer;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 4px;
+
+  font-size: 10px;
+
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.nav-btn:active {
+  transform: scale(0.94);
+}
+
+.nav-btn .nav-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.nav-btn.active {
+  color: #ffffff;
+
+  background:
+    rgba(79, 140, 255, 0.14);
+}
+
+/* =========================
+   TOAST
+========================= */
+
+.toast {
+  position: fixed;
+
+  left: 50%;
+  bottom: 82px;
+
+  transform:
+    translateX(-50%)
+    translateY(15px);
+
+  background: #202832;
+
+  color: white;
+
+  padding: 11px 16px;
+
+  border-radius: 12px;
+
+  font-size: 13px;
+
+  opacity: 0;
+
+  pointer-events: none;
+
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+
+  z-index: 200;
+
+  max-width: calc(100% - 30px);
+
+  text-align: center;
+
+  border: 1px solid var(--border);
+}
+
+.toast.show {
+  opacity: 1;
+
+  transform:
+    translateX(-50%)
+    translateY(0);
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 380px) {
+
+  .app {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .balance {
+    font-size: 30px;
+  }
+
+  .balance-card {
+    padding: 19px;
+  }
+
+  .earn-card {
+    padding: 14px;
+  }
+
+  .username {
+    max-width: 170px;
+  }
+}
+
+/* =========================
+   REDUCED MOTION
+========================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  }
