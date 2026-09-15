@@ -6,14 +6,18 @@ const tg = window.Telegram?.WebApp || null;
 // ========================================
 
 if (tg) {
+
   tg.ready();
   tg.expand();
 
   try {
+
     if (tg.enableClosingConfirmation) {
       tg.enableClosingConfirmation();
     }
+
   } catch {}
+
 }
 
 
@@ -68,7 +72,13 @@ function getDisplayName() {
     return "@" + user.username;
   }
 
-  return user.first_name || "Taska User";
+  return (
+    [user.first_name, user.last_name]
+      .filter(Boolean)
+      .join(" ")
+    || "Taska User"
+  );
+
 }
 
 
@@ -79,12 +89,14 @@ function getFirstName() {
   }
 
   return user.first_name || "User";
+
 }
 
 
 function getPhoto() {
 
   return user?.photo_url || "";
+
 }
 
 
@@ -94,6 +106,11 @@ function getPhoto() {
 
 const app =
   document.querySelector(".app");
+
+
+// IMPORTANT:
+// Store the original Home HTML before
+// any navigation happens.
 
 const initialHomeHTML =
   app.innerHTML;
@@ -110,6 +127,7 @@ function icon(name) {
       <use href="#icon-${name}"></use>
     </svg>
   `;
+
 }
 
 
@@ -147,6 +165,7 @@ function showToast(message) {
       toast.classList.remove("show");
 
     }, 2300);
+
 }
 
 
@@ -163,6 +182,8 @@ function setupUserUI() {
     document.getElementById("avatar");
 
 
+  // USERNAME
+
   if (username) {
 
     username.textContent =
@@ -171,10 +192,24 @@ function setupUserUI() {
   }
 
 
-  if (avatar && getPhoto()) {
+  // PROFILE PHOTO
+
+  const photo =
+    getPhoto();
+
+  if (avatar && photo) {
 
     avatar.style.backgroundImage =
-      `url("${getPhoto()}")`;
+      `url("${photo}")`;
+
+    avatar.style.backgroundSize =
+      "cover";
+
+    avatar.style.backgroundPosition =
+      "center";
+
+    avatar.style.backgroundRepeat =
+      "no-repeat";
 
     avatar.textContent = "";
 
@@ -182,6 +217,10 @@ function setupUserUI() {
 
 }
 
+
+// ========================================
+// INITIAL USER UI
+// ========================================
 
 setupUserUI();
 
@@ -204,6 +243,7 @@ function pageHeader(
 
     </div>
   `;
+
 }
 
 
@@ -230,9 +270,7 @@ function earnPage() {
       >
 
         <div class="feature-icon">
-
           ${icon("play")}
-
         </div>
 
         <div>
@@ -261,9 +299,7 @@ function earnPage() {
       >
 
         <div class="feature-icon">
-
           ${icon("calendar")}
-
         </div>
 
         <div>
@@ -292,9 +328,7 @@ function earnPage() {
       >
 
         <div class="feature-icon">
-
           ${icon("checklist")}
-
         </div>
 
         <div>
@@ -323,9 +357,7 @@ function earnPage() {
       >
 
         <div class="feature-icon">
-
           ${icon("gift")}
-
         </div>
 
         <div>
@@ -348,7 +380,9 @@ function earnPage() {
 
 
     </div>
+
   `;
+
 }
 
 
@@ -475,7 +509,9 @@ function referralPage() {
       </div>
 
     </div>
+
   `;
+
 }
 
 
@@ -600,7 +636,9 @@ function walletPage() {
       </div>
 
     </section>
+
   `;
+
 }
 
 
@@ -611,7 +649,14 @@ function walletPage() {
 function profilePage() {
 
   const name =
-    user?.first_name || "Taska User";
+    user?.first_name
+      ? [
+          user.first_name,
+          user.last_name
+        ]
+        .filter(Boolean)
+        .join(" ")
+      : "Taska User";
 
 
   const username =
@@ -620,11 +665,15 @@ function profilePage() {
       : "No username";
 
 
+  const photo =
+    getPhoto();
+
+
   const avatar =
-    getPhoto()
+    photo
       ? `
         <img
-          src="${getPhoto()}"
+          src="${photo}"
           alt="Profile"
         >
       `
@@ -642,7 +691,9 @@ function profilePage() {
     <div class="profile-card">
 
       <div class="profile-avatar">
+
         ${avatar}
+
       </div>
 
 
@@ -809,6 +860,7 @@ function profilePage() {
     </div>
 
   `;
+
 }
 
 
@@ -821,16 +873,38 @@ function loadPage(page) {
   haptic("light");
 
 
+  // ======================================
+  // HOME
+  // ======================================
+
   if (page === "Home") {
 
+    // Restore original Home HTML
     app.innerHTML =
       initialHomeHTML;
 
+
+    // IMPORTANT FIX:
+    // Home HTML was recreated above,
+    // so Telegram user data must be
+    // applied again.
+
+    setupUserUI();
+
+
+    // Reconnect Home buttons
+
     setupHomeEvents();
 
+
     return;
+
   }
 
+
+  // ======================================
+  // EARN
+  // ======================================
 
   if (page === "Earn") {
 
@@ -840,8 +914,13 @@ function loadPage(page) {
     setupEarnEvents();
 
     return;
+
   }
 
+
+  // ======================================
+  // REFERRAL
+  // ======================================
 
   if (page === "Referral") {
 
@@ -851,8 +930,13 @@ function loadPage(page) {
     setupReferralEvents();
 
     return;
+
   }
 
+
+  // ======================================
+  // WALLET
+  // ======================================
 
   if (page === "Wallet") {
 
@@ -862,8 +946,13 @@ function loadPage(page) {
     setupWalletEvents();
 
     return;
+
   }
 
+
+  // ======================================
+  // PROFILE
+  // ======================================
 
   if (page === "Profile") {
 
@@ -871,6 +960,8 @@ function loadPage(page) {
       profilePage();
 
     setupProfileEvents();
+
+    return;
 
   }
 
@@ -882,6 +973,7 @@ function loadPage(page) {
 // ========================================
 
 function setupHomeEvents() {
+
 
   document
     .querySelectorAll(".quick-card")
@@ -895,9 +987,11 @@ function setupHomeEvents() {
             card.dataset.feature ||
             "This feature";
 
+
           showToast(
             `${feature} will be available soon`
           );
+
 
           haptic("light");
 
@@ -918,6 +1012,7 @@ function setupHomeEvents() {
           showToast(
             "Special offers will be available soon"
           );
+
 
           haptic("light");
 
@@ -1133,6 +1228,7 @@ function setupReferralEvents() {
               referralLink
             );
 
+
             showToast(
               "Referral link copied"
             );
@@ -1152,6 +1248,7 @@ function setupReferralEvents() {
           );
 
         }
+
 
         haptic("light");
 
@@ -1302,6 +1399,9 @@ function setupNavigation() {
         "click",
         () => {
 
+
+          // Remove active state
+
           document
             .querySelectorAll(".nav-btn")
             .forEach(btn => {
@@ -1313,17 +1413,25 @@ function setupNavigation() {
             });
 
 
+          // Set active state
+
           button.classList.add(
             "active"
           );
 
 
+          // Get page
+
           const page =
             button.dataset.page;
 
 
+          // Load page
+
           loadPage(page);
 
+
+          // Scroll to top
 
           window.scrollTo({
             top: 0,
@@ -1338,142 +1446,10 @@ function setupNavigation() {
 }
 
 
+// ========================================
+// START APP
+// ========================================
+
 setupNavigation();
 
 setupHomeEvents();
-
-
-
-
-/* =========================================================
-   TASKA — PERSIST TELEGRAM USER ON HOME
-   Fix: username & profile photo disappearing after navigation
-========================================================= */
-
-(function () {
-
-  const taskaTelegramUser =
-    window.Telegram?.WebApp?.initDataUnsafe?.user || null;
-
-  if (!taskaTelegramUser) return;
-
-  function applyTaskaUser() {
-
-    const user = taskaTelegramUser;
-
-    /* -------------------------
-       USERNAME
-    ------------------------- */
-
-    const usernameElements = document.querySelectorAll(
-      "#username, .username"
-    );
-
-    usernameElements.forEach((el) => {
-
-      const displayName =
-        user.username
-          ? "@" + user.username
-          : [user.first_name, user.last_name]
-              .filter(Boolean)
-              .join(" ");
-
-      if (displayName) {
-        el.textContent = displayName;
-      }
-
-    });
-
-
-    /* -------------------------
-       PROFILE PHOTO
-    ------------------------- */
-
-    const avatarElements = document.querySelectorAll(
-      "#avatar, .avatar"
-    );
-
-    avatarElements.forEach((avatar) => {
-
-      if (user.photo_url) {
-
-        // If avatar is an IMG
-        if (avatar.tagName === "IMG") {
-
-          avatar.src = user.photo_url;
-          avatar.alt = "Profile";
-
-        }
-
-        // If avatar is a DIV
-        else {
-
-          avatar.style.backgroundImage =
-            `url("${user.photo_url}")`;
-
-          avatar.style.backgroundSize = "cover";
-          avatar.style.backgroundPosition = "center";
-          avatar.style.backgroundRepeat = "no-repeat";
-
-          // Remove default T
-          avatar.textContent = "";
-
-        }
-
-      }
-
-    });
-
-  }
-
-
-  /* First load */
-  applyTaskaUser();
-
-
-  /* -------------------------
-     WATCH FOR HOME RE-RENDER
-  ------------------------- */
-
-  const taskaObserver = new MutationObserver(() => {
-
-    applyTaskaUser();
-
-  });
-
-
-  taskaObserver.observe(document.body, {
-
-    childList: true,
-    subtree: true
-
-  });
-
-
-  /* -------------------------
-     ALSO APPLY AFTER NAVIGATION
-  ------------------------- */
-
-  document.addEventListener("click", function (event) {
-
-    const navButton =
-      event.target.closest(".nav-btn");
-
-    if (!navButton) return;
-
-    // Give Home renderer time to rebuild the page
-    setTimeout(() => {
-
-      if (
-        navButton.dataset.page === "Home"
-      ) {
-
-        applyTaskaUser();
-
-      }
-
-    }, 50);
-
-  });
-
-})();
