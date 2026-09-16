@@ -1,13 +1,29 @@
+// ======================================================
+// TASKA - FRONTEND APP
+// Telegram Mini App + Taska Backend
+// ======================================================
+
+
+// ======================================================
+// TELEGRAM INITIALIZATION
+// ======================================================
+
 const tg = window.Telegram?.WebApp || null;
 
 
-// ========================================
-// TELEGRAM INITIALIZATION
-// ========================================
+// Taska Backend
+const API_URL =
+  "https://taska-mini-app.onrender.com";
+
+
+// ======================================================
+// TELEGRAM STARTUP
+// ======================================================
 
 if (tg) {
 
   tg.ready();
+
   tg.expand();
 
   try {
@@ -21,104 +37,261 @@ if (tg) {
 }
 
 
-// ========================================
+// ======================================================
 // TELEGRAM THEME
-// ========================================
+// ======================================================
 
 if (tg?.themeParams) {
 
-  const root = document.documentElement;
-  const theme = tg.themeParams;
+  const root =
+    document.documentElement;
+
+  const theme =
+    tg.themeParams;
+
 
   if (theme.bg_color) {
+
     root.style.setProperty(
       "--bg",
       theme.bg_color
     );
+
   }
 
+
   if (theme.text_color) {
+
     root.style.setProperty(
       "--text",
       theme.text_color
     );
+
   }
 
+
   if (theme.hint_color) {
+
     root.style.setProperty(
       "--muted",
       theme.hint_color
     );
+
   }
 
 }
 
 
-// ========================================
+// ======================================================
 // TELEGRAM USER
-// ========================================
+// ======================================================
 
-const user =
+// This is used only as an initial UI fallback.
+// Server authentication uses tg.initData.
+
+const telegramUser =
   tg?.initDataUnsafe?.user || null;
 
 
+// ======================================================
+// TASKA AUTHENTICATED USER
+// ======================================================
+
+// This will contain the user returned
+// from our backend / Neon database.
+
+let taskaUser = null;
+
+
+// ======================================================
+// USER HELPERS
+// ======================================================
+
+function getCurrentUser() {
+
+  return taskaUser || telegramUser || null;
+
+}
+
+
+// ======================================================
+// DISPLAY NAME
+// ======================================================
+
 function getDisplayName() {
 
-  if (!user) {
+  const currentUser =
+    getCurrentUser();
+
+
+  if (!currentUser) {
+
     return "Taska User";
+
   }
 
-  if (user.username) {
-    return "@" + user.username;
+
+  if (currentUser.username) {
+
+    return "@" +
+      currentUser.username;
+
   }
+
 
   return (
-    [user.first_name, user.last_name]
+
+    [
+      currentUser.first_name,
+      currentUser.last_name
+    ]
+
       .filter(Boolean)
+
       .join(" ")
+
     || "Taska User"
+
   );
 
 }
 
 
+// ======================================================
+// FIRST NAME
+// ======================================================
+
 function getFirstName() {
 
-  if (!user) {
+  const currentUser =
+    getCurrentUser();
+
+
+  if (!currentUser) {
+
     return "User";
+
   }
 
-  return user.first_name || "User";
+
+  return (
+    currentUser.first_name ||
+    "User"
+  );
 
 }
 
+
+// ======================================================
+// PHOTO
+// ======================================================
 
 function getPhoto() {
 
-  return user?.photo_url || "";
+  const currentUser =
+    getCurrentUser();
+
+
+  return (
+    currentUser?.photo_url ||
+    currentUser?.photo_url ||
+    ""
+  );
 
 }
 
 
-// ========================================
+// ======================================================
+// TELEGRAM USER ID
+// ======================================================
+
+function getTelegramId() {
+
+  const currentUser =
+    getCurrentUser();
+
+
+  if (!currentUser?.id &&
+      !currentUser?.telegram_id) {
+
+    return "";
+
+  }
+
+
+  return String(
+    currentUser.id ||
+    currentUser.telegram_id
+  );
+
+}
+
+
+// ======================================================
+// HTML ESCAPE
+// ======================================================
+
+function escapeHTML(value) {
+
+  if (value === null ||
+      value === undefined) {
+
+    return "";
+
+  }
+
+
+  return String(value)
+
+    .replace(/&/g, "&amp;")
+
+    .replace(/</g, "&lt;")
+
+    .replace(/>/g, "&gt;")
+
+    .replace(/"/g, "&quot;")
+
+    .replace(/'/g, "&#039;");
+
+}
+
+
+// ======================================================
+// FORMAT MONEY
+// ======================================================
+
+function formatMoney(amount) {
+
+  const number =
+    Number(amount || 0);
+
+
+  return (
+    "৳" +
+    number.toFixed(2)
+  );
+
+}
+
+
+// ======================================================
 // DOM
-// ========================================
+// ======================================================
 
 const app =
   document.querySelector(".app");
 
 
 // IMPORTANT:
-// Store the original Home HTML before
-// any navigation happens.
+// Store original Home HTML before navigation.
 
 const initialHomeHTML =
   app.innerHTML;
 
 
-// ========================================
-// HELPERS
-// ========================================
+// ======================================================
+// ICON HELPER
+// ======================================================
 
 function icon(name) {
 
@@ -131,12 +304,21 @@ function icon(name) {
 }
 
 
-function haptic(type = "light") {
+// ======================================================
+// HAPTIC
+// ======================================================
+
+function haptic(
+  type = "light"
+) {
 
   try {
 
     if (tg?.HapticFeedback) {
-      tg.HapticFeedback.impactOccurred(type);
+
+      tg.HapticFeedback
+        .impactOccurred(type);
+
     }
 
   } catch {}
@@ -144,45 +326,68 @@ function haptic(type = "light") {
 }
 
 
+// ======================================================
+// TOAST
+// ======================================================
+
 function showToast(message) {
 
   const toast =
-    document.getElementById("toast");
+    document.getElementById(
+      "toast"
+    );
+
 
   if (!toast) return;
 
-  toast.textContent = message;
 
-  toast.classList.add("show");
+  toast.textContent =
+    message;
+
+
+  toast.classList.add(
+    "show"
+  );
+
 
   clearTimeout(
     showToast.timer
   );
 
+
   showToast.timer =
     setTimeout(() => {
 
-      toast.classList.remove("show");
+      toast.classList.remove(
+        "show"
+      );
 
     }, 2300);
 
 }
 
 
-// ========================================
+// ======================================================
 // USER UI
-// ========================================
+// ======================================================
 
 function setupUserUI() {
 
   const username =
-    document.getElementById("username");
+    document.getElementById(
+      "username"
+    );
+
 
   const avatar =
-    document.getElementById("avatar");
+    document.getElementById(
+      "avatar"
+    );
 
 
+  // --------------------------------------------------
   // USERNAME
+  // --------------------------------------------------
 
   if (username) {
 
@@ -192,10 +397,13 @@ function setupUserUI() {
   }
 
 
+  // --------------------------------------------------
   // PROFILE PHOTO
+  // --------------------------------------------------
 
   const photo =
     getPhoto();
+
 
   if (avatar && photo) {
 
@@ -211,23 +419,145 @@ function setupUserUI() {
     avatar.style.backgroundRepeat =
       "no-repeat";
 
-    avatar.textContent = "";
+    avatar.textContent =
+      "";
 
   }
 
 }
 
 
-// ========================================
+// ======================================================
+// AUTHENTICATE USER WITH TASKA BACKEND
+// ======================================================
+
+async function authenticateTaskaUser() {
+
+  // --------------------------------------------------
+  // Telegram is required for real authentication.
+  // --------------------------------------------------
+
+  if (!tg?.initData) {
+
+    console.log(
+      "Taska: Telegram initData not available."
+    );
+
+    return null;
+
+  }
+
+
+  try {
+
+    console.log(
+      "Taska: Authenticating Telegram user..."
+    );
+
+
+    const response =
+      await fetch(
+        `${API_URL}/api/me`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            initData:
+              tg.initData
+          })
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    // ------------------------------------------------
+    // AUTH FAILED
+    // ------------------------------------------------
+
+    if (
+      !response.ok ||
+      !data.ok
+    ) {
+
+      console.error(
+        "Taska authentication failed:",
+        data
+      );
+
+      showToast(
+        "Unable to connect to Taska server"
+      );
+
+      return null;
+
+    }
+
+
+    // ------------------------------------------------
+    // SAVE BACKEND USER
+    // ------------------------------------------------
+
+    taskaUser =
+      data.user;
+
+
+    console.log(
+      "Taska user authenticated:",
+      taskaUser
+    );
+
+
+    // ------------------------------------------------
+    // UPDATE USER UI
+    // ------------------------------------------------
+
+    setupUserUI();
+
+
+    return taskaUser;
+
+
+  } catch (error) {
+
+    console.error(
+      "Taska backend connection error:",
+      error
+    );
+
+
+    showToast(
+      "Taska server connection failed"
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+// ======================================================
 // INITIAL USER UI
-// ========================================
+// ======================================================
+
+// Show Telegram information immediately,
+// then backend data will replace it after auth.
 
 setupUserUI();
 
 
-// ========================================
+// ======================================================
 // PAGE HEADER
-// ========================================
+// ======================================================
 
 function pageHeader(
   title,
@@ -235,21 +565,27 @@ function pageHeader(
 ) {
 
   return `
+
     <div class="page-header">
 
-      <h1>${title}</h1>
+      <h1>
+        ${escapeHTML(title)}
+      </h1>
 
-      <p>${subtitle}</p>
+      <p>
+        ${escapeHTML(subtitle)}
+      </p>
 
     </div>
+
   `;
 
 }
 
 
-// ========================================
+// ======================================================
 // EARN PAGE
-// ========================================
+// ======================================================
 
 function earnPage() {
 
@@ -259,6 +595,7 @@ function earnPage() {
       "Earn Rewards",
       "Complete activities and earn rewards"
     )}
+
 
     <div class="feature-list">
 
@@ -386,20 +723,25 @@ function earnPage() {
 }
 
 
-// ========================================
+// ======================================================
 // REFERRAL PAGE
-// ========================================
+// ======================================================
 
 function referralPage() {
 
+  const telegramId =
+    getTelegramId();
+
+
   const referralCode =
-    user?.id
-      ? String(user.id)
-      : "YOUR_ID";
+    telegramId ||
+    "YOUR_ID";
 
 
   const referralLink =
-    `https://t.me/TaskaEarn_bot?start=${referralCode}`;
+    `https://t.me/TaskaEarn_bot?start=${encodeURIComponent(
+      referralCode
+    )}`;
 
 
   return `
@@ -432,7 +774,9 @@ function referralPage() {
 
       <div class="referral-box">
 
-        ${referralLink}
+        ${escapeHTML(
+          referralLink
+        )}
 
       </div>
 
@@ -515,11 +859,17 @@ function referralPage() {
 }
 
 
-// ========================================
+// ======================================================
 // WALLET PAGE
-// ========================================
+// ======================================================
 
 function walletPage() {
+
+  const balance =
+    Number(
+      taskaUser?.balance || 0
+    );
+
 
   return `
 
@@ -537,7 +887,7 @@ function walletPage() {
 
 
       <div class="wallet-balance">
-        ৳0.00
+        ${formatMoney(balance)}
       </div>
 
 
@@ -642,26 +992,37 @@ function walletPage() {
 }
 
 
-// ========================================
+// ======================================================
 // PROFILE PAGE
-// ========================================
+// ======================================================
 
 function profilePage() {
 
+  const currentUser =
+    getCurrentUser();
+
+
   const name =
-    user?.first_name
+    currentUser?.first_name
+
       ? [
-          user.first_name,
-          user.last_name
+          currentUser.first_name,
+          currentUser.last_name
         ]
-        .filter(Boolean)
-        .join(" ")
+
+          .filter(Boolean)
+
+          .join(" ")
+
       : "Taska User";
 
 
   const username =
-    user?.username
-      ? "@" + user.username
+    currentUser?.username
+
+      ? "@" +
+        currentUser.username
+
       : "No username";
 
 
@@ -671,12 +1032,16 @@ function profilePage() {
 
   const avatar =
     photo
+
       ? `
+
         <img
-          src="${photo}"
+          src="${escapeHTML(photo)}"
           alt="Profile"
         >
+
       `
+
       : "T";
 
 
@@ -698,12 +1063,12 @@ function profilePage() {
 
 
       <h2>
-        ${name}
+        ${escapeHTML(name)}
       </h2>
 
 
       <p>
-        ${username}
+        ${escapeHTML(username)}
       </p>
 
     </div>
@@ -864,35 +1229,31 @@ function profilePage() {
 }
 
 
-// ========================================
+// ======================================================
 // LOAD PAGE
-// ========================================
+// ======================================================
 
 function loadPage(page) {
 
   haptic("light");
 
 
-  // ======================================
+  // ====================================================
   // HOME
-  // ======================================
+  // ====================================================
 
   if (page === "Home") {
 
-    // Restore original Home HTML
     app.innerHTML =
       initialHomeHTML;
 
 
-    // IMPORTANT FIX:
-    // Home HTML was recreated above,
-    // so Telegram user data must be
-    // applied again.
+    // IMPORTANT:
+    // Restore Telegram / backend user data
+    // after Home HTML is recreated.
 
     setupUserUI();
 
-
-    // Reconnect Home buttons
 
     setupHomeEvents();
 
@@ -902,64 +1263,72 @@ function loadPage(page) {
   }
 
 
-  // ======================================
+  // ====================================================
   // EARN
-  // ======================================
+  // ====================================================
 
   if (page === "Earn") {
 
     app.innerHTML =
       earnPage();
 
+
     setupEarnEvents();
+
 
     return;
 
   }
 
 
-  // ======================================
+  // ====================================================
   // REFERRAL
-  // ======================================
+  // ====================================================
 
   if (page === "Referral") {
 
     app.innerHTML =
       referralPage();
 
+
     setupReferralEvents();
+
 
     return;
 
   }
 
 
-  // ======================================
+  // ====================================================
   // WALLET
-  // ======================================
+  // ====================================================
 
   if (page === "Wallet") {
 
     app.innerHTML =
       walletPage();
 
+
     setupWalletEvents();
+
 
     return;
 
   }
 
 
-  // ======================================
+  // ====================================================
   // PROFILE
-  // ======================================
+  // ====================================================
 
   if (page === "Profile") {
 
     app.innerHTML =
       profilePage();
 
+
     setupProfileEvents();
+
 
     return;
 
@@ -968,9 +1337,9 @@ function loadPage(page) {
 }
 
 
-// ========================================
+// ======================================================
 // HOME EVENTS
-// ========================================
+// ======================================================
 
 function setupHomeEvents() {
 
@@ -1038,6 +1407,7 @@ function setupHomeEvents() {
           "Withdrawal will be available soon"
         );
 
+
         haptic("light");
 
       }
@@ -1061,6 +1431,7 @@ function setupHomeEvents() {
         showToast(
           "No new notifications"
         );
+
 
         haptic("light");
 
@@ -1086,6 +1457,9 @@ function setupHomeEvents() {
           "Detailed statistics will be available soon"
         );
 
+
+        haptic("light");
+
       }
     );
 
@@ -1107,6 +1481,9 @@ function setupHomeEvents() {
         showToast(
           "Transaction history will be available soon"
         );
+
+
+        haptic("light");
 
       }
     );
@@ -1130,6 +1507,9 @@ function setupHomeEvents() {
           "Balance visibility control"
         );
 
+
+        haptic("light");
+
       }
     );
 
@@ -1138,9 +1518,9 @@ function setupHomeEvents() {
 }
 
 
-// ========================================
+// ======================================================
 // EARN EVENTS
-// ========================================
+// ======================================================
 
 function setupEarnEvents() {
 
@@ -1189,21 +1569,30 @@ function setupEarnEvents() {
 }
 
 
-// ========================================
+// ======================================================
 // REFERRAL EVENTS
-// ========================================
+// ======================================================
 
 function setupReferralEvents() {
 
+  const telegramId =
+    getTelegramId();
+
+
   const referralCode =
-    user?.id
-      ? String(user.id)
-      : "YOUR_ID";
+    telegramId ||
+    "YOUR_ID";
 
 
   const referralLink =
-    `https://t.me/TaskaEarn_bot?start=${referralCode}`;
+    `https://t.me/TaskaEarn_bot?start=${encodeURIComponent(
+      referralCode
+    )}`;
 
+
+  // ----------------------------------------------------
+  // COPY
+  // ----------------------------------------------------
 
   const copyButton =
     document.getElementById(
@@ -1258,6 +1647,10 @@ function setupReferralEvents() {
   }
 
 
+  // ----------------------------------------------------
+  // SHARE
+  // ----------------------------------------------------
+
   const shareButton =
     document.getElementById(
       "shareReferral"
@@ -1299,9 +1692,9 @@ function setupReferralEvents() {
 }
 
 
-// ========================================
+// ======================================================
 // WALLET EVENTS
-// ========================================
+// ======================================================
 
 function setupWalletEvents() {
 
@@ -1321,6 +1714,7 @@ function setupWalletEvents() {
           "Withdrawal will be available soon"
         );
 
+
         haptic("light");
 
       }
@@ -1331,9 +1725,9 @@ function setupWalletEvents() {
 }
 
 
-// ========================================
+// ======================================================
 // PROFILE EVENTS
-// ========================================
+// ======================================================
 
 function setupProfileEvents() {
 
@@ -1385,9 +1779,9 @@ function setupProfileEvents() {
 }
 
 
-// ========================================
+// ======================================================
 // NAVIGATION
-// ========================================
+// ======================================================
 
 function setupNavigation() {
 
@@ -1400,7 +1794,9 @@ function setupNavigation() {
         () => {
 
 
+          // --------------------------------------------
           // Remove active state
+          // --------------------------------------------
 
           document
             .querySelectorAll(".nav-btn")
@@ -1413,29 +1809,40 @@ function setupNavigation() {
             });
 
 
+          // --------------------------------------------
           // Set active state
+          // --------------------------------------------
 
           button.classList.add(
             "active"
           );
 
 
+          // --------------------------------------------
           // Get page
+          // --------------------------------------------
 
           const page =
             button.dataset.page;
 
 
+          // --------------------------------------------
           // Load page
+          // --------------------------------------------
 
           loadPage(page);
 
 
-          // Scroll to top
+          // --------------------------------------------
+          // Scroll top
+          // --------------------------------------------
 
           window.scrollTo({
+
             top: 0,
+
             behavior: "smooth"
+
           });
 
         }
@@ -1446,10 +1853,38 @@ function setupNavigation() {
 }
 
 
-// ========================================
+// ======================================================
 // START APP
-// ========================================
+// ======================================================
 
 setupNavigation();
 
 setupHomeEvents();
+
+
+// ======================================================
+// AUTHENTICATE WITH BACKEND
+// ======================================================
+
+// Run after the initial UI has loaded.
+// This does NOT block the interface.
+
+authenticateTaskaUser()
+  .then((authenticatedUser) => {
+
+    if (!authenticatedUser) {
+      return;
+    }
+
+
+    // Refresh current Home UI
+    // with database-backed user data.
+
+    setupUserUI();
+
+
+    console.log(
+      "Taska: User account is connected to database."
+    );
+
+  });
