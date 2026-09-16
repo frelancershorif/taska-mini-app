@@ -8,12 +8,153 @@
 // TELEGRAM INITIALIZATION
 // ======================================================
 
-const tg = window.Telegram?.WebApp || null;
+const tg =
+  window.Telegram?.WebApp || null;
 
 
 // Taska Backend
 const API_URL =
   "https://taska-mini-app.onrender.com";
+
+
+// Earn page state
+// Server remains the source of truth.
+let earnTasks = [];
+
+const taskStartTimes =
+  new Map();
+
+
+// ======================================================
+// AUTH INIT DATA
+// ======================================================
+
+function authInitData() {
+
+  return tg?.initData || "";
+
+}
+
+
+// ======================================================
+// TASKA API
+// ======================================================
+
+async function taskaAPI(
+  path,
+  body = {}
+) {
+
+  const response =
+    await fetch(
+      `${API_URL}${path}`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify({
+            ...body,
+            initData:
+              authInitData()
+          })
+      }
+    );
+
+
+  let data;
+
+
+  try {
+
+    data =
+      await response.json();
+
+  } catch {
+
+    throw new Error(
+      "Invalid server response"
+    );
+
+  }
+
+
+  if (
+    !response.ok ||
+    !data.ok
+  ) {
+
+    throw new Error(
+      data.error ||
+      "Taska server error"
+    );
+
+  }
+
+
+  return data;
+
+}
+
+
+// ======================================================
+// REFRESH BALANCE
+// ======================================================
+
+function refreshTaskaBalance(
+  balance
+) {
+
+  if (!taskaUser) return;
+
+
+  taskaUser.balance =
+    Number(
+      balance || 0
+    );
+
+
+  const balanceElements =
+    document.querySelectorAll(
+      "#balance, .balance-value, .wallet-balance"
+    );
+
+
+  balanceElements.forEach(
+    (element) => {
+
+      if (
+        element.classList
+          .contains(
+            "wallet-balance"
+          )
+      ) {
+
+        element.textContent =
+          formatMoney(
+            taskaUser.balance
+          );
+
+      } else if (
+        element.id ===
+        "balance"
+      ) {
+
+        element.textContent =
+          formatMoney(
+            taskaUser.balance
+          );
+
+      }
+
+    }
+  );
+
+}
 
 
 // ======================================================
@@ -28,8 +169,12 @@ if (tg) {
 
   try {
 
-    if (tg.enableClosingConfirmation) {
+    if (
+      tg.enableClosingConfirmation
+    ) {
+
       tg.enableClosingConfirmation();
+
     }
 
   } catch {}
@@ -86,19 +231,14 @@ if (tg?.themeParams) {
 // TELEGRAM USER
 // ======================================================
 
-// This is used only as an initial UI fallback.
-// Server authentication uses tg.initData.
-
 const telegramUser =
-  tg?.initDataUnsafe?.user || null;
+  tg?.initDataUnsafe?.user ||
+  null;
 
 
 // ======================================================
 // TASKA AUTHENTICATED USER
 // ======================================================
-
-// This will contain the user returned
-// from our backend / Neon database.
 
 let taskaUser = null;
 
@@ -109,7 +249,11 @@ let taskaUser = null;
 
 function getCurrentUser() {
 
-  return taskaUser || telegramUser || null;
+  return (
+    taskaUser ||
+    telegramUser ||
+    null
+  );
 
 }
 
@@ -131,10 +275,14 @@ function getDisplayName() {
   }
 
 
-  if (currentUser.username) {
+  if (
+    currentUser.username
+  ) {
 
-    return "@" +
-      currentUser.username;
+    return (
+      "@" +
+      currentUser.username
+    );
 
   }
 
@@ -211,8 +359,10 @@ function getTelegramId() {
     getCurrentUser();
 
 
-  if (!currentUser?.id &&
-      !currentUser?.telegram_id) {
+  if (
+    !currentUser?.id &&
+    !currentUser?.telegram_id
+  ) {
 
     return "";
 
@@ -233,8 +383,10 @@ function getTelegramId() {
 
 function escapeHTML(value) {
 
-  if (value === null ||
-      value === undefined) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
 
     return "";
 
@@ -243,15 +395,30 @@ function escapeHTML(value) {
 
   return String(value)
 
-    .replace(/&/g, "&amp;")
+    .replace(
+      /&/g,
+      "&amp;"
+    )
 
-    .replace(/</g, "&lt;")
+    .replace(
+      /</g,
+      "&lt;"
+    )
 
-    .replace(/>/g, "&gt;")
+    .replace(
+      />/g,
+      "&gt;"
+    )
 
-    .replace(/"/g, "&quot;")
+    .replace(
+      /"/g,
+      "&quot;"
+    )
 
-    .replace(/'/g, "&#039;");
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 
 }
 
@@ -263,7 +430,9 @@ function escapeHTML(value) {
 function formatMoney(amount) {
 
   const number =
-    Number(amount || 0);
+    Number(
+      amount || 0
+    );
 
 
   return (
@@ -279,12 +448,12 @@ function formatMoney(amount) {
 // ======================================================
 
 const app =
-  document.querySelector(".app");
+  document.querySelector(
+    ".app"
+  );
 
 
-// IMPORTANT:
-// Store original Home HTML before navigation.
-
+// Store original Home HTML
 const initialHomeHTML =
   app.innerHTML;
 
@@ -314,10 +483,14 @@ function haptic(
 
   try {
 
-    if (tg?.HapticFeedback) {
+    if (
+      tg?.HapticFeedback
+    ) {
 
       tg.HapticFeedback
-        .impactOccurred(type);
+        .impactOccurred(
+          type
+        );
 
     }
 
@@ -330,7 +503,9 @@ function haptic(
 // TOAST
 // ======================================================
 
-function showToast(message) {
+function showToast(
+  message
+) {
 
   const toast =
     document.getElementById(
@@ -356,13 +531,16 @@ function showToast(message) {
 
 
   showToast.timer =
-    setTimeout(() => {
+    setTimeout(
+      () => {
 
-      toast.classList.remove(
-        "show"
-      );
+        toast.classList.remove(
+          "show"
+        );
 
-    }, 2300);
+      },
+      2300
+    );
 
 }
 
@@ -385,10 +563,6 @@ function setupUserUI() {
     );
 
 
-  // --------------------------------------------------
-  // USERNAME
-  // --------------------------------------------------
-
   if (username) {
 
     username.textContent =
@@ -397,15 +571,14 @@ function setupUserUI() {
   }
 
 
-  // --------------------------------------------------
-  // PROFILE PHOTO
-  // --------------------------------------------------
-
   const photo =
     getPhoto();
 
 
-  if (avatar && photo) {
+  if (
+    avatar &&
+    photo
+  ) {
 
     avatar.style.backgroundImage =
       `url("${photo}")`;
@@ -428,14 +601,10 @@ function setupUserUI() {
 
 
 // ======================================================
-// AUTHENTICATE USER WITH TASKA BACKEND
+// AUTHENTICATE USER
 // ======================================================
 
 async function authenticateTaskaUser() {
-
-  // --------------------------------------------------
-  // Telegram is required for real authentication.
-  // --------------------------------------------------
 
   if (!tg?.initData) {
 
@@ -466,10 +635,11 @@ async function authenticateTaskaUser() {
               "application/json"
           },
 
-          body: JSON.stringify({
-            initData:
-              tg.initData
-          })
+          body:
+            JSON.stringify({
+              initData:
+                tg.initData
+            })
         }
       );
 
@@ -477,10 +647,6 @@ async function authenticateTaskaUser() {
     const data =
       await response.json();
 
-
-    // ------------------------------------------------
-    // AUTH FAILED
-    // ------------------------------------------------
 
     if (
       !response.ok ||
@@ -501,10 +667,6 @@ async function authenticateTaskaUser() {
     }
 
 
-    // ------------------------------------------------
-    // SAVE BACKEND USER
-    // ------------------------------------------------
-
     taskaUser =
       data.user;
 
@@ -514,10 +676,6 @@ async function authenticateTaskaUser() {
       taskaUser
     );
 
-
-    // ------------------------------------------------
-    // UPDATE USER UI
-    // ------------------------------------------------
 
     setupUserUI();
 
@@ -548,9 +706,6 @@ async function authenticateTaskaUser() {
 // ======================================================
 // INITIAL USER UI
 // ======================================================
-
-// Show Telegram information immediately,
-// then backend data will replace it after auth.
 
 setupUserUI();
 
@@ -596,8 +751,35 @@ function earnPage() {
       "Complete activities and earn rewards"
     )}
 
-
     <div class="feature-list">
+
+      <button
+        class="feature-card"
+        data-action="checkin"
+        type="button"
+      >
+
+        <div class="feature-icon">
+          ${icon("calendar")}
+        </div>
+
+        <div>
+
+          <strong>
+            Daily Check-in
+          </strong>
+
+          <span>
+            Claim your daily reward once every day
+          </span>
+
+        </div>
+
+        <b>
+          ${icon("arrow")}
+        </b>
+
+      </button>
 
 
       <button
@@ -617,7 +799,7 @@ function earnPage() {
           </strong>
 
           <span>
-            Watch available ads and earn rewards
+            Verified ad rewards will appear here
           </span>
 
         </div>
@@ -627,96 +809,38 @@ function earnPage() {
         </b>
 
       </button>
-
-
-      <button
-        class="feature-card"
-        data-action="checkin"
-        type="button"
-      >
-
-        <div class="feature-icon">
-          ${icon("calendar")}
-        </div>
-
-        <div>
-
-          <strong>
-            Daily Check-in
-          </strong>
-
-          <span>
-            Come every day and claim your reward
-          </span>
-
-        </div>
-
-        <b>
-          ${icon("arrow")}
-        </b>
-
-      </button>
-
-
-      <button
-        class="feature-card"
-        data-action="tasks"
-        type="button"
-      >
-
-        <div class="feature-icon">
-          ${icon("checklist")}
-        </div>
-
-        <div>
-
-          <strong>
-            Complete Tasks
-          </strong>
-
-          <span>
-            Complete available tasks and earn
-          </span>
-
-        </div>
-
-        <b>
-          ${icon("arrow")}
-        </b>
-
-      </button>
-
-
-      <button
-        class="feature-card"
-        data-action="bonus"
-        type="button"
-      >
-
-        <div class="feature-icon">
-          ${icon("gift")}
-        </div>
-
-        <div>
-
-          <strong>
-            Special Offers
-          </strong>
-
-          <span>
-            Discover available bonus opportunities
-          </span>
-
-        </div>
-
-        <b>
-          ${icon("arrow")}
-        </b>
-
-      </button>
-
 
     </div>
+
+
+    <div class="section-title">
+
+      <h2>
+        ${icon("checklist")}
+        Available Tasks
+      </h2>
+
+    </div>
+
+
+    <section
+      id="taskList"
+      class="feature-list"
+    >
+
+      <div class="empty">
+
+        <strong>
+          Loading tasks...
+        </strong>
+
+        <span>
+          Please wait
+        </span>
+
+      </div>
+
+    </section>
 
   `;
 
@@ -755,9 +879,7 @@ function referralPage() {
     <div class="referral-card">
 
       <div class="referral-icon">
-
         ${icon("users")}
-
       </div>
 
 
@@ -867,7 +989,8 @@ function walletPage() {
 
   const balance =
     Number(
-      taskaUser?.balance || 0
+      taskaUser?.balance ||
+      0
     );
 
 
@@ -907,7 +1030,6 @@ function walletPage() {
 
 
     <div class="stats">
-
 
       <div class="stat-card">
 
@@ -950,18 +1072,14 @@ function walletPage() {
 
       </div>
 
-
     </div>
 
 
     <div class="section-title">
 
       <h2>
-
         ${icon("receipt")}
-
         Transactions
-
       </h2>
 
     </div>
@@ -1056,9 +1174,7 @@ function profilePage() {
     <div class="profile-card">
 
       <div class="profile-avatar">
-
         ${avatar}
-
       </div>
 
 
@@ -1075,7 +1191,6 @@ function profilePage() {
 
 
     <div class="profile-menu">
-
 
       <button
         class="profile-item"
@@ -1221,12 +1336,12 @@ function profilePage() {
 
       </button>
 
-
     </div>
 
   `;
 
-}
+        }
+
 
 
 // ======================================================
@@ -1248,9 +1363,8 @@ function loadPage(page) {
       initialHomeHTML;
 
 
-    // IMPORTANT:
-    // Restore Telegram / backend user data
-    // after Home HTML is recreated.
+    // Re-apply Telegram/backend
+    // user data after Home rebuild.
 
     setupUserUI();
 
@@ -1343,52 +1457,59 @@ function loadPage(page) {
 
 function setupHomeEvents() {
 
+  document
+    .querySelectorAll(
+      ".quick-card"
+    )
+    .forEach(
+      card => {
+
+        card.addEventListener(
+          "click",
+          () => {
+
+            const feature =
+              card.dataset.feature ||
+              "This feature";
+
+
+            showToast(
+              `${feature} will be available soon`
+            );
+
+
+            haptic("light");
+
+          }
+        );
+
+      }
+    );
+
 
   document
-    .querySelectorAll(".quick-card")
-    .forEach(card => {
+    .querySelectorAll(
+      ".feature-banner"
+    )
+    .forEach(
+      banner => {
 
-      card.addEventListener(
-        "click",
-        () => {
+        banner.addEventListener(
+          "click",
+          () => {
 
-          const feature =
-            card.dataset.feature ||
-            "This feature";
-
-
-          showToast(
-            `${feature} will be available soon`
-          );
+            showToast(
+              "Special offers will be available soon"
+            );
 
 
-          haptic("light");
+            haptic("light");
 
-        }
-      );
+          }
+        );
 
-    });
-
-
-  document
-    .querySelectorAll(".feature-banner")
-    .forEach(banner => {
-
-      banner.addEventListener(
-        "click",
-        () => {
-
-          showToast(
-            "Special offers will be available soon"
-          );
-
-
-          haptic("light");
-
-        }
-      );
-
-    });
+      }
+    );
 
 
   const withdraw =
@@ -1522,49 +1643,521 @@ function setupHomeEvents() {
 // EARN EVENTS
 // ======================================================
 
-function setupEarnEvents() {
+function renderEarnTasks(
+  tasks
+) {
 
-  document
-    .querySelectorAll(".feature-card")
-    .forEach(card => {
+  const list =
+    document.getElementById(
+      "taskList"
+    );
 
-      card.addEventListener(
+
+  if (!list) return;
+
+
+  if (!tasks.length) {
+
+    list.innerHTML = `
+
+      <div class="empty">
+
+        <span class="empty-icon">
+          ${icon("checklist")}
+        </span>
+
+        <strong>
+          No tasks available
+        </strong>
+
+        <span>
+          New earning tasks will appear here
+        </span>
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  list.innerHTML =
+    tasks
+      .map(
+        (task) => {
+
+          const reward =
+            formatMoney(
+              task.reward
+            );
+
+          const completed =
+            task.completed;
+
+
+          return `
+
+            <div
+              class="feature-card task-card"
+              data-task-id="${Number(task.id)}"
+              style="cursor:default;"
+            >
+
+              <div class="feature-icon">
+                ${icon("checklist")}
+              </div>
+
+
+              <div
+                style="flex:1;min-width:0;"
+              >
+
+                <strong>
+                  ${escapeHTML(
+                    task.title
+                  )}
+                </strong>
+
+                <span>
+                  ${escapeHTML(
+                    task.description ||
+                    "Complete this task to earn a reward"
+                  )}
+                </span>
+
+                <small
+                  style="
+                    display:block;
+                    margin-top:6px;
+                    font-weight:700;
+                    opacity:.9;
+                  "
+                >
+                  Reward: ${reward}
+                </small>
+
+              </div>
+
+
+              <button
+                type="button"
+                class="primary-action task-claim"
+                data-task-id="${Number(task.id)}"
+                ${completed ? "disabled" : ""}
+                style="
+                  width:auto;
+                  min-width:82px;
+                  padding:10px 12px;
+                  margin-left:8px;
+                  white-space:nowrap;
+                "
+              >
+
+                ${
+                  completed
+                    ? "Completed"
+                    : "Claim"
+                }
+
+              </button>
+
+            </div>
+
+          `;
+
+        }
+      )
+      .join("");
+
+}
+
+
+async function loadEarnTasks() {
+
+  const list =
+    document.getElementById(
+      "taskList"
+    );
+
+
+  if (!list) return;
+
+
+  try {
+
+    const data =
+      await taskaAPI(
+        "/api/tasks"
+      );
+
+
+    earnTasks =
+      Array.isArray(
+        data.tasks
+      )
+        ? data.tasks
+        : [];
+
+
+    renderEarnTasks(
+      earnTasks
+    );
+
+
+  } catch (error) {
+
+    list.innerHTML = `
+
+      <div class="empty">
+
+        <strong>
+          Unable to load tasks
+        </strong>
+
+        <span>
+          ${escapeHTML(
+            error.message
+          )}
+        </span>
+
+        <button
+          type="button"
+          class="secondary-action"
+          id="retryTasks"
+        >
+          Try Again
+        </button>
+
+      </div>
+
+    `;
+
+
+    const retry =
+      document.getElementById(
+        "retryTasks"
+      );
+
+
+    if (retry) {
+
+      retry.addEventListener(
         "click",
-        () => {
+        loadEarnTasks
+      );
 
-          const action =
-            card.dataset.action;
+    }
 
+  }
 
-          const messages = {
-
-            ads:
-              "Ads will be available soon",
-
-            checkin:
-              "Daily Check-in will be available soon",
-
-            tasks:
-              "Tasks will be available soon",
-
-            bonus:
-              "Special offers will be available soon"
-
-          };
+}
 
 
-          showToast(
-            messages[action] ||
-            "This feature will be available soon"
-          );
+async function claimTask(
+  taskId
+) {
+
+  const task =
+    earnTasks.find(
+      (item) =>
+        Number(item.id) ===
+        Number(taskId)
+    );
 
 
-          haptic("light");
+  if (!task) return;
 
+
+  if (task.completed) {
+
+    showToast(
+      "This task is already completed"
+    );
+
+    return;
+
+  }
+
+
+  const startedAt =
+    taskStartTimes.get(
+      Number(taskId)
+    );
+
+
+  const minimumWait =
+    3000;
+
+
+  if (!startedAt) {
+
+    if (task.target_url) {
+
+      if (
+        task.target_url
+          .startsWith(
+            "https://t.me/"
+          ) &&
+        tg?.openTelegramLink
+      ) {
+
+        tg.openTelegramLink(
+          task.target_url
+        );
+
+      } else {
+
+        window.open(
+          task.target_url,
+          "_blank"
+        );
+
+      }
+
+    }
+
+
+    taskStartTimes.set(
+      Number(taskId),
+      Date.now()
+    );
+
+
+    showToast(
+      "Complete the task, then return here to claim"
+    );
+
+
+    haptic("light");
+
+
+    return;
+
+  }
+
+
+  if (
+    Date.now() -
+      startedAt <
+    minimumWait
+  ) {
+
+    showToast(
+      "Please wait a moment before claiming"
+    );
+
+    return;
+
+  }
+
+
+  const button =
+    document.querySelector(
+      `.task-claim[data-task-id="${Number(taskId)}"]`
+    );
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "Claiming...";
+
+  }
+
+
+  try {
+
+    const data =
+      await taskaAPI(
+        "/api/tasks/complete",
+        {
+          task_id:
+            Number(taskId)
         }
       );
 
-    });
+
+    task.completed =
+      true;
+
+
+    refreshTaskaBalance(
+      data.balance
+    );
+
+
+    showToast(
+      `Reward added: ${formatMoney(
+        data.reward
+      )}`
+    );
+
+
+    haptic("medium");
+
+
+    renderEarnTasks(
+      earnTasks
+    );
+
+
+  } catch (error) {
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        "Claim";
+
+    }
+
+
+    showToast(
+      error.message
+    );
+
+  }
+
+}
+
+
+async function claimDailyCheckin() {
+
+  const button =
+    document.querySelector(
+      '[data-action="checkin"]'
+    );
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+  }
+
+
+  try {
+
+    const data =
+      await taskaAPI(
+        "/api/checkin"
+      );
+
+
+    refreshTaskaBalance(
+      data.balance
+    );
+
+
+    showToast(
+      `Daily reward added: ${formatMoney(
+        data.reward
+      )}`
+    );
+
+
+    haptic("medium");
+
+
+  } catch (error) {
+
+    showToast(
+      error.message
+    );
+
+
+  } finally {
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+    }
+
+  }
+
+}
+
+
+function setupEarnEvents() {
+
+  const checkin =
+    document.querySelector(
+      '[data-action="checkin"]'
+    );
+
+
+  if (checkin) {
+
+    checkin.addEventListener(
+      "click",
+      claimDailyCheckin
+    );
+
+  }
+
+
+  const ads =
+    document.querySelector(
+      '[data-action="ads"]'
+    );
+
+
+  if (ads) {
+
+    ads.addEventListener(
+      "click",
+      () => {
+
+        showToast(
+          "Verified ads will be available soon"
+        );
+
+
+        haptic("light");
+
+      }
+    );
+
+  }
+
+
+  document
+    .querySelectorAll(
+      ".task-claim"
+    )
+    .forEach(
+      (button) => {
+
+        button.addEventListener(
+          "click",
+          (event) => {
+
+            event.stopPropagation();
+
+            claimTask(
+              Number(
+                button.dataset.taskId
+              )
+            );
+
+          }
+        );
+
+      }
+    );
+
+
+  loadEarnTasks();
 
 }
 
@@ -1589,10 +2182,6 @@ function setupReferralEvents() {
       referralCode
     )}`;
 
-
-  // ----------------------------------------------------
-  // COPY
-  // ----------------------------------------------------
 
   const copyButton =
     document.getElementById(
@@ -1647,10 +2236,6 @@ function setupReferralEvents() {
   }
 
 
-  // ----------------------------------------------------
-  // SHARE
-  // ----------------------------------------------------
-
   const shareButton =
     document.getElementById(
       "shareReferral"
@@ -1669,7 +2254,9 @@ function setupReferralEvents() {
           )}`;
 
 
-        if (tg?.openTelegramLink) {
+        if (
+          tg?.openTelegramLink
+        ) {
 
           tg.openTelegramLink(
             shareURL
@@ -1689,7 +2276,7 @@ function setupReferralEvents() {
 
   }
 
-}
+    }
 
 
 // ======================================================
@@ -1732,49 +2319,53 @@ function setupWalletEvents() {
 function setupProfileEvents() {
 
   document
-    .querySelectorAll(".profile-item")
-    .forEach(item => {
+    .querySelectorAll(
+      ".profile-item"
+    )
+    .forEach(
+      item => {
 
-      item.addEventListener(
-        "click",
-        () => {
+        item.addEventListener(
+          "click",
+          () => {
 
-          const type =
-            item.dataset.profile;
-
-
-          const messages = {
-
-            support:
-              "Support center coming soon",
-
-            settings:
-              "Account settings coming soon",
-
-            terms:
-              "Terms & Conditions coming soon",
-
-            privacy:
-              "Privacy Policy coming soon",
-
-            about:
-              "Taska information coming soon"
-
-          };
+            const type =
+              item.dataset.profile;
 
 
-          showToast(
-            messages[type] ||
-            "Coming soon"
-          );
+            const messages = {
+
+              support:
+                "Support center coming soon",
+
+              settings:
+                "Account settings coming soon",
+
+              terms:
+                "Terms & Conditions coming soon",
+
+              privacy:
+                "Privacy Policy coming soon",
+
+              about:
+                "Taska information coming soon"
+
+            };
 
 
-          haptic("light");
+            showToast(
+              messages[type] ||
+              "Coming soon"
+            );
 
-        }
-      );
 
-    });
+            haptic("light");
+
+          }
+        );
+
+      }
+    );
 
 }
 
@@ -1786,69 +2377,56 @@ function setupProfileEvents() {
 function setupNavigation() {
 
   document
-    .querySelectorAll(".nav-btn")
-    .forEach(button => {
+    .querySelectorAll(
+      ".nav-btn"
+    )
+    .forEach(
+      button => {
 
-      button.addEventListener(
-        "click",
-        () => {
+        button.addEventListener(
+          "click",
+          () => {
 
+            document
+              .querySelectorAll(
+                ".nav-btn"
+              )
+              .forEach(
+                btn => {
 
-          // --------------------------------------------
-          // Remove active state
-          // --------------------------------------------
+                  btn.classList.remove(
+                    "active"
+                  );
 
-          document
-            .querySelectorAll(".nav-btn")
-            .forEach(btn => {
-
-              btn.classList.remove(
-                "active"
+                }
               );
 
+
+            button.classList.add(
+              "active"
+            );
+
+
+            const page =
+              button.dataset.page;
+
+
+            loadPage(
+              page
+            );
+
+
+            window.scrollTo({
+              top: 0,
+              behavior:
+                "smooth"
             });
 
+          }
+        );
 
-          // --------------------------------------------
-          // Set active state
-          // --------------------------------------------
-
-          button.classList.add(
-            "active"
-          );
-
-
-          // --------------------------------------------
-          // Get page
-          // --------------------------------------------
-
-          const page =
-            button.dataset.page;
-
-
-          // --------------------------------------------
-          // Load page
-          // --------------------------------------------
-
-          loadPage(page);
-
-
-          // --------------------------------------------
-          // Scroll top
-          // --------------------------------------------
-
-          window.scrollTo({
-
-            top: 0,
-
-            behavior: "smooth"
-
-          });
-
-        }
-      );
-
-    });
+      }
+    );
 
 }
 
@@ -1866,25 +2444,25 @@ setupHomeEvents();
 // AUTHENTICATE WITH BACKEND
 // ======================================================
 
-// Run after the initial UI has loaded.
-// This does NOT block the interface.
-
 authenticateTaskaUser()
-  .then((authenticatedUser) => {
+  .then(
+    (authenticatedUser) => {
 
-    if (!authenticatedUser) {
-      return;
+      if (
+        !authenticatedUser
+      ) {
+
+        return;
+
+      }
+
+
+      setupUserUI();
+
+
+      console.log(
+        "Taska: User account is connected to database."
+      );
+
     }
-
-
-    // Refresh current Home UI
-    // with database-backed user data.
-
-    setupUserUI();
-
-
-    console.log(
-      "Taska: User account is connected to database."
-    );
-
-  });
+  );
