@@ -15,6 +15,9 @@ const WEB_APP_URL =
 
 const PORT = process.env.PORT || 10000;
 
+// Taska earning defaults
+const DEFAULT_CHECKIN_REWARD = 0.50;
+
 if (!BOT_TOKEN) {
   console.error("BOT_TOKEN is missing!");
   process.exit(1);
@@ -57,6 +60,25 @@ async function initDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS
+    task_completions_task_user_unique
+    ON task_completions(task_id, telegram_id);
+  `);
+
+  await pool.query(`
+    INSERT INTO tasks
+      (title, description, task_type, reward, target_url, is_active)
+    SELECT
+      'Visit Taska Bot (Test)',
+      'Open the Taska bot, return to the app, then claim the test reward.',
+      'visit',
+      0.10,
+      'https://t.me/TaskaEarn_bot',
+      TRUE
+    WHERE NOT EXISTS (SELECT 1 FROM tasks);
   `);
 
   console.log("Database tables are ready.");
@@ -240,19 +262,21 @@ function validateTelegramInitData(initData) {
   let hashMatches = false;
 
   try {
-    const receivedBuffer = Buffer.from(receivedHash, "hex");
-    const calculatedBuffer = Buffer.from(
-      calculatedHash,
-      "hex"
-    );
+    const receivedBuffer =
+      Buffer.from(receivedHash, "hex");
+
+    const calculatedBuffer =
+      Buffer.from(calculatedHash, "hex");
 
     if (
-      receivedBuffer.length === calculatedBuffer.length
+      receivedBuffer.length ===
+      calculatedBuffer.length
     ) {
-      hashMatches = crypto.timingSafeEqual(
-        receivedBuffer,
-        calculatedBuffer
-      );
+      hashMatches =
+        crypto.timingSafeEqual(
+          receivedBuffer,
+          calculatedBuffer
+        );
     }
   } catch (error) {
     hashMatches = false;
@@ -265,50 +289,59 @@ function validateTelegramInitData(initData) {
     };
   }
 
-  // Prevent very old authentication data.
-  const authDate = Number(params.get("auth_date"));
+  const authDate =
+    Number(params.get("auth_date"));
 
-  if (!authDate || !Number.isFinite(authDate)) {
+  if (
+    !authDate ||
+    !Number.isFinite(authDate)
+  ) {
     return {
       valid: false,
       error: "Invalid auth_date"
     };
   }
 
-  const now = Math.floor(Date.now() / 1000);
+  const now =
+    Math.floor(Date.now() / 1000);
 
-  // 24-hour validity window.
   if (now - authDate > 86400) {
     return {
       valid: false,
-      error: "Telegram authentication data expired"
+      error:
+        "Telegram authentication data expired"
     };
   }
 
-  const userString = params.get("user");
+  const userString =
+    params.get("user");
 
   if (!userString) {
     return {
       valid: false,
-      error: "Telegram user data missing"
+      error:
+        "Telegram user data missing"
     };
   }
 
   let user;
 
   try {
-    user = JSON.parse(userString);
+    user =
+      JSON.parse(userString);
   } catch (error) {
     return {
       valid: false,
-      error: "Invalid Telegram user data"
+      error:
+        "Invalid Telegram user data"
     };
   }
 
   if (!user || !user.id) {
     return {
       valid: false,
-      error: "Telegram user ID missing"
+      error:
+        "Telegram user ID missing"
     };
   }
 
@@ -323,48 +356,66 @@ function validateTelegramInitData(initData) {
 // ======================================================
 
 async function saveTelegramUser(user) {
-  const telegramId = String(user.id);
+  const telegramId =
+    String(user.id);
 
-  const result = await pool.query(
-    `
-    INSERT INTO users (
-      telegram_id,
-      username,
-      first_name,
-      last_name,
-      photo_url,
-      last_login_at,
-      updated_at
-    )
-    VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+  const result =
+    await pool.query(
+      `
+      INSERT INTO users (
+        telegram_id,
+        username,
+        first_name,
+        last_name,
+        photo_url,
+        referral_code,
+        last_login_at,
+        updated_at
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        UPPER(
+          SUBSTRING(
+            MD5($1 || RANDOM()::TEXT),
+            1,
+            8
+          )
+        ),
+        NOW(),
+        NOW()
+      )
 
-    ON CONFLICT (telegram_id)
-    DO UPDATE SET
-      username = EXCLUDED.username,
-      first_name = EXCLUDED.first_name,
-      last_name = EXCLUDED.last_name,
-      photo_url = EXCLUDED.photo_url,
-      last_login_at = NOW(),
-      updated_at = NOW()
+      ON CONFLICT (telegram_id)
+      DO UPDATE SET
+        username = EXCLUDED.username,
+        first_name = EXCLUDED.first_name,
+        last_name = EXCLUDED.last_name,
+        photo_url = EXCLUDED.photo_url,
+        last_login_at = NOW(),
+        updated_at = NOW()
 
-    RETURNING
-      telegram_id,
-      username,
-      first_name,
-      last_name,
-      photo_url,
-      balance,
-      created_at,
-      last_login_at;
-    `,
-    [
-      telegramId,
-      user.username || null,
-      user.first_name || null,
-      user.last_name || null,
-      user.photo_url || null
-    ]
-  );
+      RETURNING
+        telegram_id,
+        username,
+        first_name,
+        last_name,
+        photo_url,
+        balance,
+        created_at,
+        last_login_at;
+      `,
+      [
+        telegramId,
+        user.username || null,
+        user.first_name || null,
+        user.last_name || null,
+        user.photo_url || null
+      ]
+    );
 
   return result.rows[0];
 }
@@ -373,15 +424,30 @@ async function saveTelegramUser(user) {
 // JSON RESPONSE
 // ======================================================
 
-function sendJSON(res, statusCode, data) {
-  const body = JSON.stringify(data);
+function sendJSON(
+  res,
+  statusCode,
+  data
+) {
+  const body =
+    JSON.stringify(data);
 
-  res.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  });
+  res.writeHead(
+    statusCode,
+    {
+      "Content-Type":
+        "application/json; charset=utf-8",
+
+      "Access-Control-Allow-Origin":
+        "*",
+
+      "Access-Control-Allow-Methods":
+        "GET, POST, OPTIONS",
+
+      "Access-Control-Allow-Headers":
+        "Content-Type"
+    }
+  );
 
   res.end(body);
 }
@@ -391,192 +457,1219 @@ function sendJSON(res, statusCode, data) {
 // ======================================================
 
 function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = "";
+  return new Promise(
+    (resolve, reject) => {
 
-    req.on("data", (chunk) => {
-      body += chunk;
+      let body = "";
 
-      // Basic protection against oversized requests.
-      if (body.length > 1024 * 1024) {
-        reject(new Error("Request body too large"));
-        req.destroy();
-      }
-    });
+      req.on(
+        "data",
+        (chunk) => {
 
-    req.on("end", () => {
-      resolve(body);
-    });
+          body += chunk;
 
-    req.on("error", reject);
-  });
+          if (
+            body.length >
+            1024 * 1024
+          ) {
+            reject(
+              new Error(
+                "Request body too large"
+              )
+            );
+
+            req.destroy();
+          }
+
+        }
+      );
+
+      req.on(
+        "end",
+        () => {
+          resolve(body);
+        }
+      );
+
+      req.on(
+        "error",
+        reject
+      );
+
+    }
+  );
 }
 
 // ======================================================
-// HTTP API SERVER
+// AUTHENTICATED API HELPERS
 // ======================================================
 
-const server = http.createServer(async (req, res) => {
-  try {
-    // CORS preflight
-    if (req.method === "OPTIONS") {
-      res.writeHead(204, {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      });
-
-      res.end();
-      return;
-    }
-
-    // --------------------------------------------------
-    // HEALTH CHECK
-    // --------------------------------------------------
-
-    if (req.method === "GET" && req.url === "/") {
-      res.writeHead(200, {
-        "Content-Type": "text/plain; charset=utf-8"
-      });
-
-      res.end("Taska Backend is running!");
-      return;
-    }
-
-    // --------------------------------------------------
-    // DATABASE HEALTH CHECK
-    // --------------------------------------------------
-
-    if (
-      req.method === "GET" &&
-      req.url === "/health"
-    ) {
-      await pool.query("SELECT 1");
-
-      sendJSON(res, 200, {
-        ok: true,
-        database: "connected",
-        service: "Taska Backend"
-      });
-
-      return;
-    }
-
-    // --------------------------------------------------
-    // TELEGRAM AUTH + USER API
-    // --------------------------------------------------
-
-    if (
-      req.method === "POST" &&
-      req.url === "/api/me"
-    ) {
-      const rawBody = await readBody(req);
-
-      let body;
-
-      try {
-        body = JSON.parse(rawBody);
-      } catch (error) {
-        sendJSON(res, 400, {
-          ok: false,
-          error: "Invalid JSON"
-        });
-
-        return;
-      }
-
-      const initData = body.initData;
-
-      const validation =
-        validateTelegramInitData(initData);
-
-      if (!validation.valid) {
-        sendJSON(res, 401, {
-          ok: false,
-          error: validation.error
-        });
-
-        return;
-      }
-
-      const user = validation.user;
-
-      const savedUser =
-        await saveTelegramUser(user);
-
-      sendJSON(res, 200, {
-        ok: true,
-
-        user: {
-          telegram_id: String(
-            savedUser.telegram_id
-          ),
-
-          username:
-            savedUser.username,
-
-          first_name:
-            savedUser.first_name,
-
-          last_name:
-            savedUser.last_name,
-
-          photo_url:
-            savedUser.photo_url,
-
-          balance:
-            Number(savedUser.balance),
-
-          created_at:
-            savedUser.created_at,
-
-          last_login_at:
-            savedUser.last_login_at
-        }
-      });
-
-      return;
-    }
-
-    // --------------------------------------------------
-    // 404
-    // --------------------------------------------------
-
-    sendJSON(res, 404, {
-      ok: false,
-      error: "Not Found"
-    });
-
-  } catch (error) {
-    console.error(
-      "HTTP server error:",
-      error
+async function getAuthenticatedUserFromBody(
+  body
+) {
+  const validation =
+    validateTelegramInitData(
+      body?.initData
     );
 
-    sendJSON(res, 500, {
+  if (!validation.valid) {
+    return {
       ok: false,
-      error: "Internal server error"
-    });
+      status: 401,
+      error: validation.error
+    };
   }
-});
+
+  const telegramId =
+    String(validation.user.id);
+
+  const result =
+    await pool.query(
+      `
+      SELECT
+        telegram_id,
+        username,
+        first_name,
+        last_name,
+        photo_url,
+        balance,
+        total_earned,
+        total_withdrawn,
+        referral_code,
+        is_banned,
+        created_at,
+        last_login_at
+      FROM users
+      WHERE telegram_id = $1
+      `,
+      [telegramId]
+    );
+
+  if (!result.rows[0]) {
+    return {
+      ok: false,
+      status: 404,
+      error:
+        "Taska user account not found"
+    };
+  }
+
+  if (result.rows[0].is_banned) {
+    return {
+      ok: false,
+      status: 403,
+      error:
+        "This Taska account is restricted"
+    };
+  }
+
+  return {
+    ok: true,
+    user: result.rows[0]
+  };
+}
+
+// ======================================================
+// PUBLIC USER
+// ======================================================
+
+function publicUser(row) {
+  return {
+    telegram_id:
+      String(row.telegram_id),
+
+    username:
+      row.username,
+
+    first_name:
+      row.first_name,
+
+    last_name:
+      row.last_name,
+
+    photo_url:
+      row.photo_url,
+
+    balance:
+      Number(row.balance || 0),
+
+    total_earned:
+      Number(row.total_earned || 0),
+
+    total_withdrawn:
+      Number(row.total_withdrawn || 0),
+
+    referral_code:
+      row.referral_code,
+
+    created_at:
+      row.created_at,
+
+    last_login_at:
+      row.last_login_at
+  };
+}
+
+// ======================================================
+// AWARD BALANCE
+// ======================================================
+
+async function awardBalance(
+  client,
+  telegramId,
+  amount,
+  type,
+  referenceId,
+  description
+) {
+  const userResult =
+    await client.query(
+      `
+      SELECT
+        telegram_id,
+        balance,
+        total_earned,
+        total_withdrawn
+      FROM users
+      WHERE telegram_id = $1
+      FOR UPDATE
+      `,
+      [telegramId]
+    );
+
+  if (!userResult.rows[0]) {
+    throw new Error(
+      "User account not found"
+    );
+  }
+
+  const user =
+    userResult.rows[0];
+
+  const before =
+    Number(user.balance || 0);
+
+  const reward =
+    Number(amount);
+
+  const after =
+    before + reward;
+
+  await client.query(
+    `
+    UPDATE users
+    SET
+      balance = $1,
+      total_earned =
+        total_earned + $2,
+      updated_at = NOW()
+    WHERE telegram_id = $3
+    `,
+    [
+      after,
+      reward,
+      telegramId
+    ]
+  );
+
+  await client.query(
+    `
+    INSERT INTO transactions
+    (
+      telegram_id,
+      type,
+      amount,
+      balance_before,
+      balance_after,
+      reference_id,
+      description
+    )
+    VALUES
+    (
+      $1,
+      $2,
+      $3,
+      $4,
+      $5,
+      $6,
+      $7
+    )
+    `,
+    [
+      telegramId,
+      type,
+      reward,
+      before,
+      after,
+      referenceId,
+      description
+    ]
+  );
+
+  return {
+    before,
+    after,
+    reward
+  };
+}
+
+// ======================================================
+// HTTP SERVER
+// ======================================================
+
+const server =
+  http.createServer(
+    async (req, res) => {
+
+      try {
+
+        // ------------------------------------------------
+        // CORS
+        // ------------------------------------------------
+
+        if (
+          req.method === "OPTIONS"
+        ) {
+
+          res.writeHead(
+            204,
+            {
+              "Access-Control-Allow-Origin":
+                "*",
+
+              "Access-Control-Allow-Methods":
+                "GET, POST, OPTIONS",
+
+              "Access-Control-Allow-Headers":
+                "Content-Type"
+            }
+          );
+
+          res.end();
+
+          return;
+        }
+
+        // ------------------------------------------------
+        // ROOT
+        // ------------------------------------------------
+
+        if (
+          req.method === "GET" &&
+          req.url === "/"
+        ) {
+
+          res.writeHead(
+            200,
+            {
+              "Content-Type":
+                "text/plain; charset=utf-8"
+            }
+          );
+
+          res.end(
+            "Taska Backend is running!"
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------
+        // HEALTH
+        // ------------------------------------------------
+
+        if (
+          req.method === "GET" &&
+          req.url === "/health"
+        ) {
+
+          await pool.query(
+            "SELECT 1"
+          );
+
+          sendJSON(
+            res,
+            200,
+            {
+              ok: true,
+              database:
+                "connected",
+              service:
+                "Taska Backend"
+            }
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------
+        // USER AUTH
+        // ------------------------------------------------
+
+        if (
+          req.method === "POST" &&
+          req.url === "/api/me"
+        ) {
+
+          const rawBody =
+            await readBody(req);
+
+          let body;
+
+          try {
+            body =
+              JSON.parse(
+                rawBody
+              );
+          } catch {
+
+            sendJSON(
+              res,
+              400,
+              {
+                ok: false,
+                error:
+                  "Invalid JSON"
+              }
+            );
+
+            return;
+          }
+
+          const validation =
+            validateTelegramInitData(
+              body.initData
+            );
+
+          if (
+            !validation.valid
+          ) {
+
+            sendJSON(
+              res,
+              401,
+              {
+                ok: false,
+                error:
+                  validation.error
+              }
+            );
+
+            return;
+          }
+
+          const user =
+            validation.user;
+
+          const savedUser =
+            await saveTelegramUser(
+              user
+            );
+
+          sendJSON(
+            res,
+            200,
+            {
+              ok: true,
+
+              user: {
+                telegram_id:
+                  String(
+                    savedUser.telegram_id
+                  ),
+
+                username:
+                  savedUser.username,
+
+                first_name:
+                  savedUser.first_name,
+
+                last_name:
+                  savedUser.last_name,
+
+                photo_url:
+                  savedUser.photo_url,
+
+                balance:
+                  Number(
+                    savedUser.balance
+                  ),
+
+                created_at:
+                  savedUser.created_at,
+
+                last_login_at:
+                  savedUser.last_login_at
+              }
+            }
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------
+        // GET TASKS
+        // ------------------------------------------------
+
+        if (
+          req.method === "POST" &&
+          req.url === "/api/tasks"
+        ) {
+
+          const rawBody =
+            await readBody(req);
+
+          let body;
+
+          try {
+            body =
+              JSON.parse(
+                rawBody
+              );
+          } catch {
+
+            sendJSON(
+              res,
+              400,
+              {
+                ok: false,
+                error:
+                  "Invalid JSON"
+              }
+            );
+
+            return;
+          }
+
+          const auth =
+            await getAuthenticatedUserFromBody(
+              body
+            );
+
+          if (!auth.ok) {
+
+            sendJSON(
+              res,
+              auth.status,
+              {
+                ok: false,
+                error:
+                  auth.error
+              }
+            );
+
+            return;
+          }
+
+          const result =
+            await pool.query(
+              `
+              SELECT
+                t.id,
+                t.title,
+                t.description,
+                t.task_type,
+                t.reward,
+                t.target_url,
+                t.icon_url,
+                t.daily_limit,
+
+                EXISTS (
+                  SELECT 1
+                  FROM task_completions tc
+                  WHERE
+                    tc.task_id = t.id
+                    AND
+                    tc.telegram_id = $1
+                    AND
+                    tc.status =
+                      'completed'
+                ) AS completed
+
+              FROM tasks t
+
+              WHERE
+                t.is_active = TRUE
+
+              ORDER BY
+                t.created_at DESC,
+                t.id DESC
+              `,
+              [
+                String(
+                  auth.user.telegram_id
+                )
+              ]
+            );
+
+          sendJSON(
+            res,
+            200,
+            {
+              ok: true,
+
+              tasks:
+                result.rows.map(
+                  (task) => ({
+                    id:
+                      Number(
+                        task.id
+                      ),
+
+                    title:
+                      task.title,
+
+                    description:
+                      task.description,
+
+                    task_type:
+                      task.task_type,
+
+                    reward:
+                      Number(
+                        task.reward || 0
+                      ),
+
+                    target_url:
+                      task.target_url,
+
+                    icon_url:
+                      task.icon_url,
+
+                    daily_limit:
+                      task.daily_limit,
+
+                    completed:
+                      Boolean(
+                        task.completed
+                      )
+                  })
+                )
+            }
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------
+        // COMPLETE TASK
+        // ------------------------------------------------
+
+        if (
+          req.method === "POST" &&
+          req.url ===
+            "/api/tasks/complete"
+        ) {
+
+          const rawBody =
+            await readBody(req);
+
+          let body;
+
+          try {
+            body =
+              JSON.parse(
+                rawBody
+              );
+          } catch {
+
+            sendJSON(
+              res,
+              400,
+              {
+                ok: false,
+                error:
+                  "Invalid JSON"
+              }
+            );
+
+            return;
+          }
+
+          const auth =
+            await getAuthenticatedUserFromBody(
+              body
+            );
+
+          if (!auth.ok) {
+
+            sendJSON(
+              res,
+              auth.status,
+              {
+                ok: false,
+                error:
+                  auth.error
+              }
+            );
+
+            return;
+          }
+
+          const taskId =
+            Number(
+              body.task_id
+            );
+
+          if (
+            !Number.isInteger(
+              taskId
+            ) ||
+            taskId <= 0
+          ) {
+
+            sendJSON(
+              res,
+              400,
+              {
+                ok: false,
+                error:
+                  "Invalid task ID"
+              }
+            );
+
+            return;
+          }
+
+          const client =
+            await pool.connect();
+
+          try {
+
+            await client.query(
+              "BEGIN"
+            );
+
+            const taskResult =
+              await client.query(
+                `
+                SELECT
+                  id,
+                  title,
+                  reward,
+                  is_active
+                FROM tasks
+                WHERE id = $1
+                FOR UPDATE
+                `,
+                [taskId]
+              );
+
+            if (
+              !taskResult.rows[0] ||
+              !taskResult.rows[0]
+                .is_active
+            ) {
+
+              await client.query(
+                "ROLLBACK"
+              );
+
+              sendJSON(
+                res,
+                404,
+                {
+                  ok: false,
+                  error:
+                    "Task not available"
+                }
+              );
+
+              return;
+            }
+
+            const task =
+              taskResult.rows[0];
+
+            const telegramId =
+              String(
+                auth.user.telegram_id
+              );
+
+            const existing =
+              await client.query(
+                `
+                SELECT id
+                FROM task_completions
+                WHERE
+                  task_id = $1
+                  AND
+                  telegram_id = $2
+                LIMIT 1
+                `,
+                [
+                  taskId,
+                  telegramId
+                ]
+              );
+
+            if (
+              existing.rows[0]
+            ) {
+
+              await client.query(
+                "ROLLBACK"
+              );
+
+              sendJSON(
+                res,
+                409,
+                {
+                  ok: false,
+                  error:
+                    "This task has already been completed"
+                }
+              );
+
+              return;
+            }
+
+            const reward =
+              Number(
+                task.reward || 0
+              );
+
+            if (reward <= 0) {
+
+              await client.query(
+                "ROLLBACK"
+              );
+
+              sendJSON(
+                res,
+                400,
+                {
+                  ok: false,
+                  error:
+                    "Task reward is not configured"
+                }
+              );
+
+              return;
+            }
+
+            await client.query(
+              `
+              INSERT INTO task_completions
+              (
+                task_id,
+                telegram_id,
+                reward,
+                status
+              )
+              VALUES
+              (
+                $1,
+                $2,
+                $3,
+                'completed'
+              )
+              `,
+              [
+                taskId,
+                telegramId,
+                reward
+              ]
+            );
+
+            const balance =
+              await awardBalance(
+                client,
+                telegramId,
+                reward,
+                "task_reward",
+                String(taskId),
+                `Reward for completing: ${task.title}`
+              );
+
+            await client.query(
+              "COMMIT"
+            );
+
+            sendJSON(
+              res,
+              200,
+              {
+                ok: true,
+                message:
+                  "Task completed successfully",
+                reward:
+                  balance.reward,
+                balance:
+                  balance.after
+              }
+            );
+
+            return;
+
+          } catch (error) {
+
+            try {
+              await client.query(
+                "ROLLBACK"
+              );
+            } catch {}
+
+            if (
+              error.code ===
+              "23505"
+            ) {
+
+              sendJSON(
+                res,
+                409,
+                {
+                  ok: false,
+                  error:
+                    "This task has already been completed"
+                }
+              );
+
+              return;
+            }
+
+            throw error;
+
+          } finally {
+
+            client.release();
+
+          }
+        }
+
+        // ------------------------------------------------
+        // DAILY CHECK-IN
+        // ------------------------------------------------
+
+        if (
+          req.method === "POST" &&
+          req.url ===
+            "/api/checkin"
+        ) {
+
+          const rawBody =
+            await readBody(req);
+
+          let body;
+
+          try {
+            body =
+              JSON.parse(
+                rawBody
+              );
+          } catch {
+
+            sendJSON(
+              res,
+              400,
+              {
+                ok: false,
+                error:
+                  "Invalid JSON"
+              }
+            );
+
+            return;
+          }
+
+          const auth =
+            await getAuthenticatedUserFromBody(
+              body
+            );
+
+          if (!auth.ok) {
+
+            sendJSON(
+              res,
+              auth.status,
+              {
+                ok: false,
+                error:
+                  auth.error
+              }
+            );
+
+            return;
+          }
+
+          const telegramId =
+            String(
+              auth.user.telegram_id
+            );
+
+          const client =
+            await pool.connect();
+
+          try {
+
+            await client.query(
+              "BEGIN"
+            );
+
+            const existing =
+              await client.query(
+                `
+                SELECT id
+                FROM daily_checkins
+                WHERE
+                  telegram_id = $1
+                  AND
+                  checkin_date =
+                    CURRENT_DATE
+                LIMIT 1
+                `,
+                [telegramId]
+              );
+
+            if (
+              existing.rows[0]
+            ) {
+
+              await client.query(
+                "ROLLBACK"
+              );
+
+              sendJSON(
+                res,
+                409,
+                {
+                  ok: false,
+                  error:
+                    "Daily check-in already claimed today"
+                }
+              );
+
+              return;
+            }
+
+            const previous =
+              await client.query(
+                `
+                SELECT
+                  streak,
+                  checkin_date
+                FROM daily_checkins
+                WHERE
+                  telegram_id = $1
+                ORDER BY
+                  checkin_date DESC
+                LIMIT 1
+                `,
+                [telegramId]
+              );
+
+            let streak = 1;
+
+            if (
+              previous.rows[0]
+            ) {
+
+              const lastDate =
+                new Date(
+                  previous.rows[0]
+                    .checkin_date
+                );
+
+              const today =
+                new Date();
+
+              const lastUTC =
+                Date.UTC(
+                  lastDate.getUTCFullYear(),
+                  lastDate.getUTCMonth(),
+                  lastDate.getUTCDate()
+                );
+
+              const todayUTC =
+                Date.UTC(
+                  today.getUTCFullYear(),
+                  today.getUTCMonth(),
+                  today.getUTCDate()
+                );
+
+              if (
+                todayUTC -
+                  lastUTC ===
+                86400000
+              ) {
+
+                streak =
+                  Number(
+                    previous.rows[0]
+                      .streak || 1
+                  ) + 1;
+              }
+            }
+
+            const reward =
+              DEFAULT_CHECKIN_REWARD;
+
+            await client.query(
+              `
+              INSERT INTO daily_checkins
+              (
+                telegram_id,
+                checkin_date,
+                reward,
+                streak
+              )
+              VALUES
+              (
+                $1,
+                CURRENT_DATE,
+                $2,
+                $3
+              )
+              `,
+              [
+                telegramId,
+                reward,
+                streak
+              ]
+            );
+
+            const balance =
+              await awardBalance(
+                client,
+                telegramId,
+                reward,
+                "daily_checkin",
+                new Date()
+                  .toISOString()
+                  .slice(0, 10),
+                "Daily check-in reward"
+              );
+
+            await client.query(
+              `
+              UPDATE users
+              SET
+                last_checkin_at =
+                  NOW(),
+                updated_at =
+                  NOW()
+              WHERE
+                telegram_id = $1
+              `,
+              [telegramId]
+            );
+
+            await client.query(
+              "COMMIT"
+            );
+
+            sendJSON(
+              res,
+              200,
+              {
+                ok: true,
+                message:
+                  "Daily check-in claimed",
+                reward:
+                  balance.reward,
+                balance:
+                  balance.after,
+                streak
+              }
+            );
+
+            return;
+
+          } catch (error) {
+
+            try {
+              await client.query(
+                "ROLLBACK"
+              );
+            } catch {}
+
+            if (
+              error.code ===
+              "23505"
+            ) {
+
+              sendJSON(
+                res,
+                409,
+                {
+                  ok: false,
+                  error:
+                    "Daily check-in already claimed today"
+                }
+              );
+
+              return;
+            }
+
+            throw error;
+
+          } finally {
+
+            client.release();
+
+          }
+        }
+
+        // ------------------------------------------------
+        // 404
+        // ------------------------------------------------
+
+        sendJSON(
+          res,
+          404,
+          {
+            ok: false,
+            error:
+              "Not Found"
+          }
+        );
+
+      } catch (error) {
+
+        console.error(
+          "HTTP server error:",
+          error
+        );
+
+        sendJSON(
+          res,
+          500,
+          {
+            ok: false,
+            error:
+              "Internal server error"
+          }
+        );
+      }
+
+    }
+  );
 
 // ======================================================
 // START SERVER + DATABASE
 // ======================================================
 
 async function startServer() {
+
   try {
+
     await initDatabase();
 
-    server.listen(PORT, () => {
-      console.log(
-        `Taska backend running on port ${PORT}`
-      );
-    });
+    server.listen(
+      PORT,
+      () => {
+
+        console.log(
+          `Taska backend running on port ${PORT}`
+        );
+
+      }
+    );
 
     startBot();
 
   } catch (error) {
+
     console.error(
       "Startup error:",
       error
