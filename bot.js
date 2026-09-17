@@ -380,7 +380,7 @@ async function saveTelegramUser(user) {
         $5,
         UPPER(
           SUBSTRING(
-            MD5($1 || RANDOM()::TEXT),
+            MD5($1::TEXT || RANDOM()::TEXT),
             1,
             8
           )
