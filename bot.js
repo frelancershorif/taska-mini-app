@@ -356,66 +356,64 @@ function validateTelegramInitData(initData) {
 // ======================================================
 
 async function saveTelegramUser(user) {
-  const telegramId =
-    String(user.id);
+  const telegramId = String(user.id);
 
-  const result =
-    await pool.query(
-      `
-      INSERT INTO users (
-        telegram_id,
-        username,
-        first_name,
-        last_name,
-        photo_url,
-        referral_code,
-        last_login_at,
-        updated_at
-      )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        UPPER(
-          SUBSTRING(
-            MD5($1::TEXT || RANDOM()::TEXT),
-            1,
-            8
-          )
-        ),
-        NOW(),
-        NOW()
-      )
+  const result = await pool.query(
+    `
+    INSERT INTO users (
+      telegram_id,
+      username,
+      first_name,
+      last_name,
+      photo_url,
+      referral_code,
+      last_login_at,
+      updated_at
+    )
+    VALUES (
+      $1::BIGINT,
+      $2::TEXT,
+      $3::TEXT,
+      $4::TEXT,
+      $5::TEXT,
+      UPPER(
+        SUBSTRING(
+          MD5($1::TEXT || RANDOM()::TEXT),
+          1,
+          8
+        )
+      ),
+      NOW(),
+      NOW()
+    )
 
-      ON CONFLICT (telegram_id)
-      DO UPDATE SET
-        username = EXCLUDED.username,
-        first_name = EXCLUDED.first_name,
-        last_name = EXCLUDED.last_name,
-        photo_url = EXCLUDED.photo_url,
-        last_login_at = NOW(),
-        updated_at = NOW()
+    ON CONFLICT (telegram_id)
+    DO UPDATE SET
+      username = EXCLUDED.username,
+      first_name = EXCLUDED.first_name,
+      last_name = EXCLUDED.last_name,
+      photo_url = EXCLUDED.photo_url,
+      last_login_at = NOW(),
+      updated_at = NOW()
 
-      RETURNING
-        telegram_id,
-        username,
-        first_name,
-        last_name,
-        photo_url,
-        balance,
-        created_at,
-        last_login_at;
-      `,
-      [
-        telegramId,
-        user.username || null,
-        user.first_name || null,
-        user.last_name || null,
-        user.photo_url || null
-      ]
-    );
+    RETURNING
+      telegram_id,
+      username,
+      first_name,
+      last_name,
+      photo_url,
+      balance,
+      created_at,
+      last_login_at;
+    `,
+    [
+      telegramId,
+      user.username || null,
+      user.first_name || null,
+      user.last_name || null,
+      user.photo_url || null
+    ]
+  );
 
   return result.rows[0];
 }
