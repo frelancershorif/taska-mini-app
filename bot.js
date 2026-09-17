@@ -16,7 +16,14 @@ const WEB_APP_URL =
 const PORT = process.env.PORT || 10000;
 
 // Taska earning defaults
-const DEFAULT_CHECKIN_REWARD = 0.50;
+// Daily Check-in reward
+// 7-day cycle:
+// Day 1 = ৳0.10
+// Day 2 = ৳0.20
+// ...
+// Day 7 = ৳0.70
+const CHECKIN_REWARD_PER_DAY = 0.10;
+const CHECKIN_CYCLE_DAYS = 7;
 
 if (!BOT_TOKEN) {
   console.error("BOT_TOKEN is missing!");
@@ -1335,278 +1342,394 @@ const server =
           }
         }
 
-        // ------------------------------------------------
-        // DAILY CHECK-IN
-        // ------------------------------------------------
+     // ------------------------------------------------
+// DAILY CHECK-IN
+// ------------------------------------------------
+
+if (
+  req.method === "POST" &&
+  req.url ===
+    "/api/checkin"
+) {
+
+  const rawBody =
+    await readBody(req);
+
+  let body;
+
+  try {
+
+    body =
+      JSON.parse(
+        rawBody
+      );
+
+  } catch {
+
+    sendJSON(
+      res,
+      400,
+      {
+        ok: false,
+        error:
+          "Invalid JSON"
+      }
+    );
+
+    return;
+  }
+
+
+  const auth =
+    await getAuthenticatedUserFromBody(
+      body
+    );
+
+
+  if (!auth.ok) {
+
+    sendJSON(
+      res,
+      auth.status,
+      {
+        ok: false,
+        error:
+          auth.error
+      }
+    );
+
+    return;
+  }
+
+
+  const telegramId =
+    String(
+      auth.user.telegram_id
+    );
+
+
+  const client =
+    await pool.connect();
+
+
+  try {
+
+    await client.query(
+      "BEGIN"
+    );
+
+
+    // ----------------------------------------------
+    // CHECK IF USER ALREADY CLAIMED TODAY
+    // ----------------------------------------------
+
+    const existing =
+      await client.query(
+        `
+        SELECT id
+        FROM daily_checkins
+        WHERE
+          telegram_id = $1
+          AND
+          checkin_date = CURRENT_DATE
+        LIMIT 1
+        `,
+        [telegramId]
+      );
+
+
+    if (
+      existing.rows[0]
+    ) {
+
+      await client.query(
+        "ROLLBACK"
+      );
+
+
+      sendJSON(
+        res,
+        409,
+        {
+          ok: false,
+          error:
+            "Daily check-in already claimed today"
+        }
+      );
+
+
+      return;
+    }
+
+
+    // ----------------------------------------------
+    // GET PREVIOUS CHECK-IN
+    // ----------------------------------------------
+
+    const previous =
+      await client.query(
+        `
+        SELECT
+          streak,
+          checkin_date
+        FROM daily_checkins
+        WHERE
+          telegram_id = $1
+        ORDER BY
+          checkin_date DESC
+        LIMIT 1
+        `,
+        [telegramId]
+      );
+
+
+    // ----------------------------------------------
+    // CALCULATE STREAK
+    // ----------------------------------------------
+
+    let streak = 1;
+
+
+    if (
+      previous.rows[0]
+    ) {
+
+      const lastDate =
+        new Date(
+          previous.rows[0]
+            .checkin_date
+        );
+
+
+      const today =
+        new Date();
+
+
+      const lastUTC =
+        Date.UTC(
+          lastDate.getUTCFullYear(),
+          lastDate.getUTCMonth(),
+          lastDate.getUTCDate()
+        );
+
+
+      const todayUTC =
+        Date.UTC(
+          today.getUTCFullYear(),
+          today.getUTCMonth(),
+          today.getUTCDate()
+        );
+
+
+      const isNextDay =
+        todayUTC -
+          lastUTC ===
+        86400000;
+
+
+      if (isNextDay) {
+
+        const previousStreak =
+          Number(
+            previous.rows[0]
+              .streak || 1
+          );
+
+
+        // ------------------------------------------
+        // 7-DAY CYCLE
+        // After Day 7, next day starts from Day 1
+        // ------------------------------------------
 
         if (
-          req.method === "POST" &&
-          req.url ===
-            "/api/checkin"
+          previousStreak <
+          CHECKIN_CYCLE_DAYS
         ) {
 
-          const rawBody =
-            await readBody(req);
+          streak =
+            previousStreak + 1;
 
-          let body;
+        } else {
 
-          try {
-            body =
-              JSON.parse(
-                rawBody
-              );
-          } catch {
+          streak = 1;
 
-            sendJSON(
-              res,
-              400,
-              {
-                ok: false,
-                error:
-                  "Invalid JSON"
-              }
-            );
-
-            return;
-          }
-
-          const auth =
-            await getAuthenticatedUserFromBody(
-              body
-            );
-
-          if (!auth.ok) {
-
-            sendJSON(
-              res,
-              auth.status,
-              {
-                ok: false,
-                error:
-                  auth.error
-              }
-            );
-
-            return;
-          }
-
-          const telegramId =
-            String(
-              auth.user.telegram_id
-            );
-
-          const client =
-            await pool.connect();
-
-          try {
-
-            await client.query(
-              "BEGIN"
-            );
-
-            const existing =
-              await client.query(
-                `
-                SELECT id
-                FROM daily_checkins
-                WHERE
-                  telegram_id = $1
-                  AND
-                  checkin_date =
-                    CURRENT_DATE
-                LIMIT 1
-                `,
-                [telegramId]
-              );
-
-            if (
-              existing.rows[0]
-            ) {
-
-              await client.query(
-                "ROLLBACK"
-              );
-
-              sendJSON(
-                res,
-                409,
-                {
-                  ok: false,
-                  error:
-                    "Daily check-in already claimed today"
-                }
-              );
-
-              return;
-            }
-
-            const previous =
-              await client.query(
-                `
-                SELECT
-                  streak,
-                  checkin_date
-                FROM daily_checkins
-                WHERE
-                  telegram_id = $1
-                ORDER BY
-                  checkin_date DESC
-                LIMIT 1
-                `,
-                [telegramId]
-              );
-
-            let streak = 1;
-
-            if (
-              previous.rows[0]
-            ) {
-
-              const lastDate =
-                new Date(
-                  previous.rows[0]
-                    .checkin_date
-                );
-
-              const today =
-                new Date();
-
-              const lastUTC =
-                Date.UTC(
-                  lastDate.getUTCFullYear(),
-                  lastDate.getUTCMonth(),
-                  lastDate.getUTCDate()
-                );
-
-              const todayUTC =
-                Date.UTC(
-                  today.getUTCFullYear(),
-                  today.getUTCMonth(),
-                  today.getUTCDate()
-                );
-
-              if (
-                todayUTC -
-                  lastUTC ===
-                86400000
-              ) {
-
-                streak =
-                  Number(
-                    previous.rows[0]
-                      .streak || 1
-                  ) + 1;
-              }
-            }
-
-            const reward =
-              DEFAULT_CHECKIN_REWARD;
-
-            await client.query(
-              `
-              INSERT INTO daily_checkins
-              (
-                telegram_id,
-                checkin_date,
-                reward,
-                streak
-              )
-              VALUES
-              (
-                $1,
-                CURRENT_DATE,
-                $2,
-                $3
-              )
-              `,
-              [
-                telegramId,
-                reward,
-                streak
-              ]
-            );
-
-            const balance =
-              await awardBalance(
-                client,
-                telegramId,
-                reward,
-                "daily_checkin",
-                new Date()
-                  .toISOString()
-                  .slice(0, 10),
-                "Daily check-in reward"
-              );
-
-            await client.query(
-              `
-              UPDATE users
-              SET
-                last_checkin_at =
-                  NOW(),
-                updated_at =
-                  NOW()
-              WHERE
-                telegram_id = $1
-              `,
-              [telegramId]
-            );
-
-            await client.query(
-              "COMMIT"
-            );
-
-            sendJSON(
-              res,
-              200,
-              {
-                ok: true,
-                message:
-                  "Daily check-in claimed",
-                reward:
-                  balance.reward,
-                balance:
-                  balance.after,
-                streak
-              }
-            );
-
-            return;
-
-          } catch (error) {
-
-            try {
-              await client.query(
-                "ROLLBACK"
-              );
-            } catch {}
-
-            if (
-              error.code ===
-              "23505"
-            ) {
-
-              sendJSON(
-                res,
-                409,
-                {
-                  ok: false,
-                  error:
-                    "Daily check-in already claimed today"
-                }
-              );
-
-              return;
-            }
-
-            throw error;
-
-          } finally {
-
-            client.release();
-
-          }
         }
+
+      } else {
+
+        // Missed one or more days
+        streak = 1;
+
+      }
+
+    }
+
+
+    // ----------------------------------------------
+    // CALCULATE REWARD
+    // ----------------------------------------------
+    //
+    // Day 1 = 0.10
+    // Day 2 = 0.20
+    // Day 3 = 0.30
+    // Day 4 = 0.40
+    // Day 5 = 0.50
+    // Day 6 = 0.60
+    // Day 7 = 0.70
+    //
+    // Then cycle starts again at 0.10
+    // ----------------------------------------------
+
+    const reward =
+      Number(
+        (
+          CHECKIN_REWARD_PER_DAY *
+          streak
+        ).toFixed(2)
+      );
+
+
+    // ----------------------------------------------
+    // SAVE DAILY CHECK-IN
+    // ----------------------------------------------
+
+    await client.query(
+      `
+      INSERT INTO daily_checkins
+      (
+        telegram_id,
+        checkin_date,
+        reward,
+        streak
+      )
+      VALUES
+      (
+        $1,
+        CURRENT_DATE,
+        $2,
+        $3
+      )
+      `,
+      [
+        telegramId,
+        reward,
+        streak
+      ]
+    );
+
+
+    // ----------------------------------------------
+    // ADD REWARD TO USER BALANCE
+    // ----------------------------------------------
+
+    const balance =
+      await awardBalance(
+        client,
+        telegramId,
+        reward,
+        "daily_checkin",
+        new Date()
+          .toISOString()
+          .slice(0, 10),
+        `Daily check-in reward - Day ${streak}`
+      );
+
+
+    // ----------------------------------------------
+    // UPDATE USER CHECK-IN TIME
+    // ----------------------------------------------
+
+    await client.query(
+      `
+      UPDATE users
+      SET
+        last_checkin_at =
+          NOW(),
+        updated_at =
+          NOW()
+      WHERE
+        telegram_id = $1
+      `,
+      [telegramId]
+    );
+
+
+    // ----------------------------------------------
+    // COMMIT
+    // ----------------------------------------------
+
+    await client.query(
+      "COMMIT"
+    );
+
+
+    // ----------------------------------------------
+    // RESPONSE
+    // ----------------------------------------------
+
+    sendJSON(
+      res,
+      200,
+      {
+        ok: true,
+
+        message:
+          "Daily check-in claimed",
+
+        reward:
+          balance.reward,
+
+        balance:
+          balance.after,
+
+        streak
+      }
+    );
+
+
+    return;
+
+
+  } catch (error) {
+
+    try {
+
+      await client.query(
+        "ROLLBACK"
+      );
+
+    } catch {}
+
+
+    if (
+      error.code ===
+      "23505"
+    ) {
+
+      sendJSON(
+        res,
+        409,
+        {
+          ok: false,
+          error:
+            "Daily check-in already claimed today"
+        }
+      );
+
+      return;
+    }
+
+
+    throw error;
+
+
+  } finally {
+
+    client.release();
+
+  }
+
+}
 
         // ------------------------------------------------
         // 404
