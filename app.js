@@ -39,6 +39,17 @@ const TASK_MINIMUM_WAIT =
 
 
 // ======================================================
+// ONE-CLICK TASK STATE
+// ======================================================
+
+// Currently opened task waiting for automatic claim.
+let pendingTaskId = null;
+
+// Prevent duplicate automatic claims.
+let automaticClaimRunning = false;
+
+
+// ======================================================
 // AUTH INIT DATA
 // ======================================================
 
@@ -202,7 +213,7 @@ function refreshTaskaBalance(
 
 
   // ----------------------------------------------------
-  // Update every visible balance element
+  // Update visible balance elements
   // ----------------------------------------------------
 
   const balanceElements =
@@ -224,7 +235,7 @@ function refreshTaskaBalance(
 
 
   // ----------------------------------------------------
-  // Also update common data-balance elements
+  // Update data-balance elements
   // ----------------------------------------------------
 
   const dataBalanceElements =
@@ -879,7 +890,6 @@ async function authenticateTaskaUser() {
 
 
     // --------------------------------------------------
-    // IMPORTANT
     // Always use server/database balance.
     // --------------------------------------------------
 
@@ -2000,8 +2010,7 @@ function renderEarnTasks(
 
 
           // ------------------------------------------------
-          // IMPORTANT:
-          // Handle boolean / number / string
+          // Completed state
           // ------------------------------------------------
 
           const completed =
@@ -2009,6 +2018,15 @@ function renderEarnTasks(
             task.completed === 1 ||
             task.completed === "1" ||
             task.completed === "true";
+
+
+          // ------------------------------------------------
+          // Pending / claiming state
+          // ------------------------------------------------
+
+          const isPending =
+            pendingTaskId === taskId &&
+            !completed;
 
 
           return `
@@ -2066,7 +2084,8 @@ function renderEarnTasks(
                 class="primary-action task-claim"
                 data-task-id="${taskId}"
                 ${
-                  completed
+                  completed ||
+                  isPending
                     ? "disabled"
                     : ""
                 }
@@ -2074,6 +2093,11 @@ function renderEarnTasks(
                   completed
                     ? 'data-completed="true"'
                     : 'data-completed="false"'
+                }
+                ${
+                  isPending
+                    ? 'data-claiming="true"'
+                    : 'data-claiming="false"'
                 }
                 style="
                   width:auto;
@@ -2087,7 +2111,9 @@ function renderEarnTasks(
                 ${
                   completed
                     ? "Completed"
-                    : "Claim"
+                    : isPending
+                      ? "Claiming..."
+                      : "Claim"
                 }
 
               </button>
@@ -2171,6 +2197,40 @@ async function loadEarnTasks() {
     );
 
 
+    // --------------------------------------------------
+    // If a task was already opened before page reload,
+    // keep it in Claiming state.
+    // --------------------------------------------------
+
+    if (pendingTaskId) {
+
+      const pendingTask =
+        earnTasks.find(
+          task =>
+            Number(task.id) ===
+            Number(pendingTaskId)
+        );
+
+
+      if (
+        pendingTask &&
+        !(
+          pendingTask.completed === true ||
+          pendingTask.completed === 1 ||
+          pendingTask.completed === "1" ||
+          pendingTask.completed === "true"
+        )
+      ) {
+
+        renderEarnTasks(
+          earnTasks
+        );
+
+      }
+
+    }
+
+
   } catch (error) {
 
     console.error(
@@ -2229,7 +2289,311 @@ async function loadEarnTasks() {
 
 
 // ======================================================
-// CLAIM TASK
+// COMPLETE TASK AUTOMATICALLY
+// ======================================================
+
+async function completeTaskAutomatically(
+  taskId
+) {
+
+  const numericTaskId =
+    Number(
+      taskId
+    );
+
+
+  if (
+    !Number.isFinite(
+      numericTaskId
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  // ----------------------------------------------------
+  // Prevent duplicate requests
+  // ----------------------------------------------------
+
+  if (
+    automaticClaimRunning
+  ) {
+
+    console.log(
+      "Taska: Automatic claim already running."
+    );
+
+    return;
+
+  }
+
+
+  const task =
+    earnTasks.find(
+      item =>
+        Number(item.id) ===
+        numericTaskId
+    );
+
+
+  if (!task) {
+
+    console.warn(
+      "Taska: Pending task not found:",
+      numericTaskId
+    );
+
+    return;
+
+  }
+
+
+  // ----------------------------------------------------
+  // Check if already completed
+  // ----------------------------------------------------
+
+  const alreadyCompleted =
+    task.completed === true ||
+    task.completed === 1 ||
+    task.completed === "1" ||
+    task.completed === "true";
+
+
+  if (
+    alreadyCompleted
+  ) {
+
+    pendingTaskId =
+      null;
+
+    taskStartTimes.delete(
+      numericTaskId
+    );
+
+    renderEarnTasks(
+      earnTasks
+    );
+
+    return;
+
+  }
+
+
+  automaticClaimRunning =
+    true;
+
+
+  const button =
+    document.querySelector(
+      `.task-claim[data-task-id="${numericTaskId}"]`
+    );
+
+
+  if (button) {
+
+    button.dataset.claiming =
+      "true";
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "Claiming...";
+
+  }
+
+
+  try {
+
+    console.log(
+      "Taska: Automatically claiming task:",
+      numericTaskId
+    );
+
+
+    // --------------------------------------------------
+    // Check minimum task time
+    // --------------------------------------------------
+
+    const startedAt =
+      taskStartTimes.get(
+        numericTaskId
+      );
+
+
+    if (startedAt) {
+
+      const elapsed =
+        Date.now() -
+        startedAt;
+
+
+      if (
+        elapsed <
+        TASK_MINIMUM_WAIT
+      ) {
+
+        const remaining =
+          TASK_MINIMUM_WAIT -
+          elapsed;
+
+
+        console.log(
+          `Taska: Waiting ${remaining}ms before automatic claim.`
+        );
+
+
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              remaining
+            )
+        );
+
+      }
+
+    }
+
+
+    // --------------------------------------------------
+    // Call backend
+    // --------------------------------------------------
+
+    console.log(
+      "Taska: Calling /api/tasks/complete",
+      {
+        task_id:
+          numericTaskId
+      }
+    );
+
+
+    const data =
+      await taskaAPI(
+        "/api/tasks/complete",
+        {
+          task_id:
+            numericTaskId
+        }
+      );
+
+
+    console.log(
+      "Taska: Automatic claim response:",
+      data
+    );
+
+
+    // --------------------------------------------------
+    // Mark completed
+    // --------------------------------------------------
+
+    task.completed =
+      true;
+
+
+    // --------------------------------------------------
+    // Update server balance
+    // --------------------------------------------------
+
+    if (
+      data.balance !== undefined &&
+      data.balance !== null
+    ) {
+
+      refreshTaskaBalance(
+        data.balance
+      );
+
+    }
+
+
+    // --------------------------------------------------
+    // Clear task state
+    // --------------------------------------------------
+
+    taskStartTimes.delete(
+      numericTaskId
+    );
+
+
+    pendingTaskId =
+      null;
+
+
+    // --------------------------------------------------
+    // Success
+    // --------------------------------------------------
+
+    showToast(
+      `Reward added: ${formatMoney(
+        data.reward
+      )}`
+    );
+
+
+    haptic("medium");
+
+
+    // --------------------------------------------------
+    // Re-render
+    // --------------------------------------------------
+
+    renderEarnTasks(
+      earnTasks
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Taska: Automatic task claim error:",
+      error
+    );
+
+
+    // --------------------------------------------------
+    // Keep pending task so user does NOT need to
+    // click Claim again.
+    // --------------------------------------------------
+
+    if (button) {
+
+      button.dataset.claiming =
+        "true";
+
+      button.disabled =
+        true;
+
+      button.textContent =
+        "Claiming...";
+
+    }
+
+
+    showToast(
+      error?.message ||
+      "Unable to claim task"
+    );
+
+
+    haptic("light");
+
+  } finally {
+
+    automaticClaimRunning =
+      false;
+
+  }
+
+}
+
+
+// ======================================================
+// ONE-CLICK CLAIM TASK
 // ======================================================
 
 async function claimTask(
@@ -2270,7 +2634,7 @@ async function claimTask(
 
 
   console.log(
-    "Taska: claimTask() called:",
+    "Taska: ONE-CLICK CLAIM:",
     numericTaskId
   );
 
@@ -2281,7 +2645,7 @@ async function claimTask(
 
   const task =
     earnTasks.find(
-      (item) =>
+      item =>
         Number(item.id) ===
         numericTaskId
     );
@@ -2321,10 +2685,23 @@ async function claimTask(
     alreadyCompleted
   ) {
 
-    showToast(
-      "This task is already completed"
-    );
+    return;
 
+  }
+
+
+  // ----------------------------------------------------
+  // Prevent multiple clicks
+  // ----------------------------------------------------
+
+  if (
+    button?.dataset.claiming ===
+    "true"
+  ) {
+
+    console.log(
+      "Taska: Claim already started."
+    );
 
     return;
 
@@ -2332,7 +2709,7 @@ async function claimTask(
 
 
   // ----------------------------------------------------
-  // Find button if necessary
+  // Find button
   // ----------------------------------------------------
 
   if (!button) {
@@ -2346,163 +2723,16 @@ async function claimTask(
 
 
   // ====================================================
-  // FIRST CLICK
-  // ====================================================
-
-  const startedAt =
-    taskStartTimes.get(
-      numericTaskId
-    );
-
-
-  if (!startedAt) {
-
-    console.log(
-      "Taska: Starting task:",
-      numericTaskId
-    );
-
-
-    // Save start time BEFORE opening URL.
-    taskStartTimes.set(
-      numericTaskId,
-      Date.now()
-    );
-
-
-    // --------------------------------------------------
-    // Open target URL
-    // --------------------------------------------------
-
-    if (
-      task.target_url
-    ) {
-
-      try {
-
-        const targetURL =
-          String(
-            task.target_url
-          );
-
-
-        if (
-          targetURL.startsWith(
-            "https://t.me/"
-          ) &&
-          tg?.openTelegramLink
-        ) {
-
-          tg.openTelegramLink(
-            targetURL
-          );
-
-        } else {
-
-          window.open(
-            targetURL,
-            "_blank"
-          );
-
-        }
-
-      } catch (error) {
-
-        console.error(
-          "Taska: Unable to open task URL:",
-          error
-        );
-
-      }
-
-    }
-
-
-    // --------------------------------------------------
-    // First click message
-    // --------------------------------------------------
-
-    showToast(
-      "Complete the task, then tap Claim again"
-    );
-
-
-    haptic("light");
-
-
-    return;
-
-  }
-
-
-  // ====================================================
-  // WAIT CHECK
-  // ====================================================
-
-  const elapsed =
-    Date.now() -
-    startedAt;
-
-
-  if (
-    elapsed <
-    TASK_MINIMUM_WAIT
-  ) {
-
-    const remaining =
-      Math.ceil(
-        (
-          TASK_MINIMUM_WAIT -
-          elapsed
-        ) / 1000
-      );
-
-
-    showToast(
-      `Please wait ${remaining} more second${
-        remaining > 1
-          ? "s"
-          : ""
-      }`
-    );
-
-
-    haptic("light");
-
-
-    return;
-
-  }
-
-
-  // ====================================================
-  // PREVENT DOUBLE CLAIM
+  // IMMEDIATELY SHOW CLAIMING
   // ====================================================
 
   if (button) {
 
-    if (
-      button.dataset.claiming ===
-      "true"
-    ) {
-
-      console.log(
-        "Taska: Claim already in progress."
-      );
-
-
-      return;
-
-    }
-
-
     button.dataset.claiming =
       "true";
 
-
     button.disabled =
       true;
-
 
     button.textContent =
       "Claiming...";
@@ -2510,133 +2740,335 @@ async function claimTask(
   }
 
 
+  // ----------------------------------------------------
+  // Save task start time
+  // ----------------------------------------------------
+
+  taskStartTimes.set(
+    numericTaskId,
+    Date.now()
+  );
+
+
+  // ----------------------------------------------------
+  // Remember pending task
+  // ----------------------------------------------------
+
+  pendingTaskId =
+    numericTaskId;
+
+
+  console.log(
+    "Taska: Task marked as pending:",
+    numericTaskId
+  );
+
+
   // ====================================================
-  // CALL BACKEND
+  // OPEN TASK
   // ====================================================
 
-  try {
+  if (
+    task.target_url
+  ) {
 
-    console.log(
-      "Taska: Calling /api/tasks/complete",
-      {
-        task_id:
-          numericTaskId
+    try {
+
+      const targetURL =
+        String(
+          task.target_url
+        );
+
+
+      console.log(
+        "Taska: Opening task URL:",
+        targetURL
+      );
+
+
+      if (
+        targetURL.startsWith(
+          "https://t.me/"
+        ) &&
+        tg?.openTelegramLink
+      ) {
+
+        tg.openTelegramLink(
+          targetURL
+        );
+
+      } else if (
+        tg?.openLink
+      ) {
+
+        tg.openLink(
+          targetURL
+        );
+
+      } else {
+
+        window.open(
+          targetURL,
+          "_blank"
+        );
+
       }
-    );
 
 
-    const data =
-      await taskaAPI(
-        "/api/tasks/complete",
-        {
-          task_id:
-            numericTaskId
-        }
+      // ------------------------------------------------
+      // IMPORTANT:
+      // DO NOT ASK USER TO CLICK CLAIM AGAIN.
+      //
+      // When user returns to Taska,
+      // automatic claim will run.
+      // ------------------------------------------------
+
+      showToast(
+        "Complete the task and return to Taska"
       );
 
 
-    console.log(
-      "Taska: Claim response:",
-      data
-    );
+      haptic("light");
 
 
-    // --------------------------------------------------
-    // Mark task completed locally
-    // --------------------------------------------------
+      return;
 
-    task.completed =
-      true;
+    } catch (error) {
 
-
-    // --------------------------------------------------
-    // IMPORTANT:
-    // Backend/database balance is source of truth.
-    // --------------------------------------------------
-
-    if (
-      data.balance !== undefined &&
-      data.balance !== null
-    ) {
-
-      refreshTaskaBalance(
-        data.balance
+      console.error(
+        "Taska: Unable to open task URL:",
+        error
       );
 
-    }
+
+      // ------------------------------------------------
+      // If opening fails, don't leave button stuck.
+      // ------------------------------------------------
+
+      pendingTaskId =
+        null;
 
 
-    // --------------------------------------------------
-    // Remove task timer
-    // --------------------------------------------------
-
-    taskStartTimes.delete(
-      numericTaskId
-    );
+      taskStartTimes.delete(
+        numericTaskId
+      );
 
 
-    // --------------------------------------------------
-    // Success
-    // --------------------------------------------------
+      if (button) {
 
-    showToast(
-      `Reward added: ${formatMoney(
-        data.reward
-      )}`
-    );
+        button.dataset.claiming =
+          "false";
 
+        button.disabled =
+          false;
 
-    haptic("medium");
+        button.textContent =
+          "Claim";
 
-
-    // --------------------------------------------------
-    // Re-render
-    // --------------------------------------------------
-
-    renderEarnTasks(
-      earnTasks
-    );
+      }
 
 
-  } catch (error) {
-
-    console.error(
-      "Taska: Claim task error:",
-      error
-    );
+      showToast(
+        "Unable to open task"
+      );
 
 
-    // --------------------------------------------------
-    // Restore button
-    // --------------------------------------------------
-
-    if (button) {
-
-      button.dataset.claiming =
-        "false";
-
-
-      button.disabled =
-        false;
-
-
-      button.textContent =
-        "Claim";
+      return;
 
     }
-
-
-    showToast(
-      error?.message ||
-      "Unable to claim task"
-    );
-
-
-    haptic("light");
 
   }
 
+
+  // ====================================================
+  // NO URL
+  // ====================================================
+
+  // If the task has no target URL,
+  // claim immediately.
+
+  await completeTaskAutomatically(
+    numericTaskId
+  );
+
 }
+
+
+// ======================================================
+// AUTOMATIC CLAIM WHEN USER RETURNS TO TASKA
+// ======================================================
+
+async function checkPendingTask() {
+
+  if (
+    !pendingTaskId
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    automaticClaimRunning
+  ) {
+
+    return;
+
+  }
+
+
+  const taskId =
+    Number(
+      pendingTaskId
+    );
+
+
+  if (
+    !Number.isFinite(
+      taskId
+    )
+  ) {
+
+    pendingTaskId =
+      null;
+
+    return;
+
+  }
+
+
+  console.log(
+    "Taska: User returned to app.",
+    "Pending task:",
+    taskId
+  );
+
+
+  // ----------------------------------------------------
+  // Small delay to allow Telegram WebApp to resume.
+  // ----------------------------------------------------
+
+  await new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        500
+      )
+  );
+
+
+  // ----------------------------------------------------
+  // Make sure task still exists
+  // ----------------------------------------------------
+
+  const task =
+    earnTasks.find(
+      item =>
+        Number(item.id) ===
+        taskId
+    );
+
+
+  if (!task) {
+
+    console.warn(
+      "Taska: Pending task no longer exists."
+    );
+
+    return;
+
+  }
+
+
+  // ----------------------------------------------------
+  // Automatically claim
+  // ----------------------------------------------------
+
+  await completeTaskAutomatically(
+    taskId
+  );
+
+}
+
+
+// ======================================================
+// TELEGRAM / BROWSER RETURN DETECTION
+// ======================================================
+
+// Telegram Mini App may trigger visibilitychange
+// when user comes back from the bot.
+
+document.addEventListener(
+  "visibilitychange",
+  () => {
+
+    if (
+      document.visibilityState ===
+      "visible"
+    ) {
+
+      console.log(
+        "Taska: visibilitychange -> visible"
+      );
+
+
+      checkPendingTask();
+
+    }
+
+  }
+);
+
+
+// ------------------------------------------------------
+// pageshow fallback
+// ------------------------------------------------------
+
+window.addEventListener(
+  "pageshow",
+  () => {
+
+    if (
+      pendingTaskId
+    ) {
+
+      console.log(
+        "Taska: pageshow detected."
+      );
+
+
+      checkPendingTask();
+
+    }
+
+  }
+);
+
+
+// ------------------------------------------------------
+// focus fallback
+// ------------------------------------------------------
+
+window.addEventListener(
+  "focus",
+  () => {
+
+    if (
+      pendingTaskId
+    ) {
+
+      console.log(
+        "Taska: window focus detected."
+      );
+
+
+      checkPendingTask();
+
+    }
+
+  }
+);
 
 
 // ======================================================
@@ -2827,18 +3259,7 @@ function setupEarnEvents() {
 
 
   // ====================================================
-  // IMPORTANT:
   // TASK CLAIM EVENT DELEGATION
-  // ====================================================
-  //
-  // DO NOT use:
-  //
-  // querySelectorAll(".task-claim")
-  //
-  // because task buttons are created later by
-  // loadEarnTasks().
-  //
-  // Instead, listen on #taskList.
   // ====================================================
 
   const taskList =
@@ -2849,47 +3270,90 @@ function setupEarnEvents() {
 
   if (taskList) {
 
-    taskList.addEventListener(
-      "click",
-      (event) => {
+    // Prevent duplicate listeners
+    if (
+      taskList.dataset.claimEventsReady !==
+      "true"
+    ) {
 
-        const button =
-          event.target.closest(
-            ".task-claim"
+      taskList.dataset.claimEventsReady =
+        "true";
+
+
+      taskList.addEventListener(
+        "click",
+        (event) => {
+
+          const button =
+            event.target.closest(
+              ".task-claim"
+            );
+
+
+          if (!button) {
+
+            return;
+
+          }
+
+
+          event.preventDefault();
+
+          event.stopPropagation();
+
+
+          // --------------------------------------------
+          // Ignore already disabled buttons
+          // --------------------------------------------
+
+          if (
+            button.disabled
+          ) {
+
+            return;
+
+          }
+
+
+          // --------------------------------------------
+          // Ignore if already claiming
+          // --------------------------------------------
+
+          if (
+            button.dataset.claiming ===
+            "true"
+          ) {
+
+            return;
+
+          }
+
+
+          const taskId =
+            Number(
+              button.dataset.taskId
+            );
+
+
+          console.log(
+            "Taska: CLAIM BUTTON CLICKED:",
+            taskId
           );
 
 
-        if (!button) {
+          // --------------------------------------------
+          // ONE CLICK ONLY
+          // --------------------------------------------
 
-          return;
+          claimTask(
+            taskId,
+            button
+          );
 
         }
+      );
 
-
-        event.preventDefault();
-
-        event.stopPropagation();
-
-
-        const taskId =
-          Number(
-            button.dataset.taskId
-          );
-
-
-        console.log(
-          "Taska: CLAIM BUTTON CLICKED:",
-          taskId
-        );
-
-
-        claimTask(
-          taskId,
-          button
-        );
-
-      }
-    );
+    }
 
   }
 
