@@ -22,18 +22,24 @@ const API_URL =
 
 // ======================================================
 // EARN PAGE STATE
+// Server remains the source of truth.
 // ======================================================
 
 let earnTasks = [];
 
 
-// Prevent duplicate claim requests
-const claimingTasks =
-  new Set();
+// Stores the time when a task was started.
+const taskStartTimes =
+  new Map();
+
+
+// Minimum time before a task can be claimed.
+const TASK_MINIMUM_WAIT =
+  3000;
 
 
 // ======================================================
-// TELEGRAM AUTH INIT DATA
+// AUTH INIT DATA
 // ======================================================
 
 function authInitData() {
@@ -84,7 +90,9 @@ async function taskaAPI(
           body:
             JSON.stringify({
               ...body,
-              initData
+
+              initData:
+                initData
             })
         }
       );
@@ -111,7 +119,12 @@ async function taskaAPI(
     data =
       await response.json();
 
-  } catch {
+  } catch (error) {
+
+    console.error(
+      "Taska API invalid JSON:",
+      error
+    );
 
     throw new Error(
       "Invalid server response"
@@ -125,26 +138,117 @@ async function taskaAPI(
     !data.ok
   ) {
 
-    console.error(
-      "Taska API error:",
-      {
-        path,
-        status: response.status,
-        data
-      }
-    );
-
-
     throw new Error(
       data.error ||
       data.message ||
-      `Taska server error (${response.status})`
+      "Taska server error"
     );
 
   }
 
 
   return data;
+
+}
+
+
+// ======================================================
+// REFRESH BALANCE
+// ======================================================
+
+function refreshTaskaBalance(
+  balance
+) {
+
+  if (!taskaUser) {
+
+    console.warn(
+      "Taska: Cannot update balance because taskaUser is null."
+    );
+
+    return;
+
+  }
+
+
+  const numericBalance =
+    Number(
+      balance ?? 0
+    );
+
+
+  if (
+    !Number.isFinite(
+      numericBalance
+    )
+  ) {
+
+    console.error(
+      "Taska: Invalid balance:",
+      balance
+    );
+
+    return;
+
+  }
+
+
+  // ----------------------------------------------------
+  // Update local authenticated user
+  // ----------------------------------------------------
+
+  taskaUser.balance =
+    numericBalance;
+
+
+  // ----------------------------------------------------
+  // Update every visible balance element
+  // ----------------------------------------------------
+
+  const balanceElements =
+    document.querySelectorAll(
+      "#balance, .balance-value, .wallet-balance"
+    );
+
+
+  balanceElements.forEach(
+    (element) => {
+
+      element.textContent =
+        formatMoney(
+          numericBalance
+        );
+
+    }
+  );
+
+
+  // ----------------------------------------------------
+  // Also update common data-balance elements
+  // ----------------------------------------------------
+
+  const dataBalanceElements =
+    document.querySelectorAll(
+      "[data-balance]"
+    );
+
+
+  dataBalanceElements.forEach(
+    (element) => {
+
+      element.textContent =
+        formatMoney(
+          numericBalance
+        );
+
+    }
+  );
+
+
+  console.log(
+    "Taska: UI balance updated:",
+    numericBalance
+  );
 
 }
 
@@ -159,27 +263,49 @@ if (tg) {
 
     tg.ready();
 
-  } catch {}
+  } catch (error) {
+
+    console.warn(
+      "Taska: Telegram ready error:",
+      error
+    );
+
+  }
 
 
   try {
 
     tg.expand();
 
-  } catch {}
+  } catch (error) {
+
+    console.warn(
+      "Taska: Telegram expand error:",
+      error
+    );
+
+  }
 
 
   try {
 
     if (
-      tg.enableClosingConfirmation
+      typeof tg.enableClosingConfirmation ===
+      "function"
     ) {
 
       tg.enableClosingConfirmation();
 
     }
 
-  } catch {}
+  } catch (error) {
+
+    console.warn(
+      "Taska: Closing confirmation unavailable:",
+      error
+    );
+
+  }
 
 }
 
@@ -242,7 +368,8 @@ const telegramUser =
 // TASKA AUTHENTICATED USER
 // ======================================================
 
-let taskaUser = null;
+let taskaUser =
+  null;
 
 
 // ======================================================
@@ -382,7 +509,9 @@ function getTelegramId() {
 // HTML ESCAPE
 // ======================================================
 
-function escapeHTML(value) {
+function escapeHTML(
+  value
+) {
 
   if (
     value === null ||
@@ -428,12 +557,25 @@ function escapeHTML(value) {
 // FORMAT MONEY
 // ======================================================
 
-function formatMoney(amount) {
+function formatMoney(
+  amount
+) {
 
   const number =
     Number(
-      amount || 0
+      amount ?? 0
     );
+
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+
+    return "৳0.00";
+
+  }
 
 
   return (
@@ -457,7 +599,7 @@ const app =
 if (!app) {
 
   console.error(
-    "Taska: .app element not found"
+    "Taska: .app element was not found."
   );
 
 }
@@ -468,17 +610,24 @@ if (!app) {
 // ======================================================
 
 const initialHomeHTML =
-  app?.innerHTML || "";
+  app
+    ? app.innerHTML
+    : "";
 
 
 // ======================================================
 // ICON HELPER
 // ======================================================
 
-function icon(name) {
+function icon(
+  name
+) {
 
   return `
-    <svg aria-hidden="true">
+    <svg
+      aria-hidden="true"
+      focusable="false"
+    >
       <use href="#icon-${name}"></use>
     </svg>
   `;
@@ -497,7 +646,9 @@ function haptic(
   try {
 
     if (
-      tg?.HapticFeedback
+      tg?.HapticFeedback &&
+      typeof tg.HapticFeedback.impactOccurred ===
+      "function"
     ) {
 
       tg.HapticFeedback
@@ -507,7 +658,14 @@ function haptic(
 
     }
 
-  } catch {}
+  } catch (error) {
+
+    console.warn(
+      "Taska: Haptic unavailable:",
+      error
+    );
+
+  }
 
 }
 
@@ -539,7 +697,9 @@ function showToast(
 
 
   toast.textContent =
-    message;
+    String(
+      message
+    );
 
 
   toast.classList.add(
@@ -623,73 +783,6 @@ function setupUserUI() {
 
 
 // ======================================================
-// REFRESH BALANCE
-// ======================================================
-
-function refreshTaskaBalance(
-  balance
-) {
-
-  if (!taskaUser) {
-
-    return;
-
-  }
-
-
-  const numericBalance =
-    Number(
-      balance ?? 0
-    );
-
-
-  if (
-    !Number.isFinite(
-      numericBalance
-    )
-  ) {
-
-    console.error(
-      "Invalid balance:",
-      balance
-    );
-
-    return;
-
-  }
-
-
-  taskaUser.balance =
-    numericBalance;
-
-
-  const balanceElements =
-    document.querySelectorAll(
-      "#balance, .balance-value, .wallet-balance"
-    );
-
-
-  balanceElements.forEach(
-    (element) => {
-
-      element.textContent =
-        formatMoney(
-          numericBalance
-        );
-
-    }
-  );
-
-
-  console.log(
-    "Taska balance updated:",
-    numericBalance
-  );
-
-}
-
-
-// ======================================================
 // AUTHENTICATE USER
 // ======================================================
 
@@ -697,12 +790,8 @@ async function authenticateTaskaUser() {
 
   if (!tg?.initData) {
 
-    console.error(
+    console.warn(
       "Taska: Telegram initData not available."
-    );
-
-    showToast(
-      "Telegram authentication unavailable"
     );
 
     return null;
@@ -717,19 +806,61 @@ async function authenticateTaskaUser() {
     );
 
 
-    const data =
-      await taskaAPI(
-        "/api/me"
+    const response =
+      await fetch(
+        `${API_URL}/api/me`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              initData:
+                tg.initData
+            })
+        }
       );
+
+
+    let data;
+
+
+    try {
+
+      data =
+        await response.json();
+
+    } catch {
+
+      throw new Error(
+        "Invalid server response"
+      );
+
+    }
 
 
     if (
-      !data.user
+      !response.ok ||
+      !data.ok
     ) {
 
-      throw new Error(
-        "User data was not returned by server"
+      console.error(
+        "Taska authentication failed:",
+        data
       );
+
+
+      showToast(
+        data.error ||
+        "Unable to connect to Taska server"
+      );
+
+
+      return null;
 
     }
 
@@ -747,9 +878,21 @@ async function authenticateTaskaUser() {
     setupUserUI();
 
 
-    refreshTaskaBalance(
-      taskaUser.balance
-    );
+    // --------------------------------------------------
+    // IMPORTANT
+    // Always use server/database balance.
+    // --------------------------------------------------
+
+    if (
+      taskaUser &&
+      taskaUser.balance !== undefined
+    ) {
+
+      refreshTaskaBalance(
+        taskaUser.balance
+      );
+
+    }
 
 
     return taskaUser;
@@ -758,13 +901,14 @@ async function authenticateTaskaUser() {
   } catch (error) {
 
     console.error(
-      "Taska authentication error:",
+      "Taska backend connection error:",
       error
     );
 
 
     showToast(
-      error.message
+      error?.message ||
+      "Taska server connection failed"
     );
 
 
@@ -773,6 +917,13 @@ async function authenticateTaskaUser() {
   }
 
 }
+
+
+// ======================================================
+// INITIAL USER UI
+// ======================================================
+
+setupUserUI();
 
 
 // ======================================================
@@ -868,6 +1019,10 @@ function earnPage() {
           </span>
 
         </div>
+
+        <b>
+          ${icon("arrow")}
+        </b>
 
       </button>
 
@@ -1404,886 +1559,6 @@ function profilePage() {
 
 
 // ======================================================
-// TASK START STORAGE
-// ======================================================
-
-function getTaskStorageKey(
-  taskId
-) {
-
-  const telegramId =
-    getTelegramId() ||
-    "unknown";
-
-
-  return (
-    `taska_task_started_${telegramId}_${Number(taskId)}`
-  );
-
-}
-
-
-// ======================================================
-// SAVE TASK START TIME
-// ======================================================
-
-function saveTaskStartTime(
-  taskId,
-  timestamp
-) {
-
-  try {
-
-    localStorage.setItem(
-      getTaskStorageKey(taskId),
-      String(timestamp)
-    );
-
-  } catch (error) {
-
-    console.warn(
-      "Taska: Could not save task start time",
-      error
-    );
-
-  }
-
-}
-
-
-// ======================================================
-// GET TASK START TIME
-// ======================================================
-
-function getTaskStartTime(
-  taskId
-) {
-
-  try {
-
-    const value =
-      localStorage.getItem(
-        getTaskStorageKey(taskId)
-      );
-
-
-    if (!value) {
-
-      return null;
-
-    }
-
-
-    const timestamp =
-      Number(value);
-
-
-    if (
-      !Number.isFinite(timestamp)
-    ) {
-
-      return null;
-
-    }
-
-
-    return timestamp;
-
-  } catch {
-
-    return null;
-
-  }
-
-}
-
-
-// ======================================================
-// CLEAR TASK START TIME
-// ======================================================
-
-function clearTaskStartTime(
-  taskId
-) {
-
-  try {
-
-    localStorage.removeItem(
-      getTaskStorageKey(taskId)
-    );
-
-  } catch {}
-
-}
-
-
-// ======================================================
-// OPEN TASK URL
-// ======================================================
-
-function openTaskURL(
-  url
-) {
-
-  if (!url) {
-
-    return false;
-
-  }
-
-
-  try {
-
-    if (
-      url.startsWith(
-        "https://t.me/"
-      ) &&
-      tg?.openTelegramLink
-    ) {
-
-      tg.openTelegramLink(
-        url
-      );
-
-      return true;
-
-    }
-
-
-    const opened =
-      window.open(
-        url,
-        "_blank"
-      );
-
-
-    return !!opened;
-
-  } catch (error) {
-
-    console.error(
-      "Taska: Could not open task URL:",
-      error
-    );
-
-
-    return false;
-
-  }
-
-}
-
-
-// ======================================================
-// TASK BUTTON STATE
-// ======================================================
-
-function setTaskButton(
-  taskId,
-  text,
-  disabled = false
-) {
-
-  const buttons =
-    document.querySelectorAll(
-      `.task-claim[data-task-id="${Number(taskId)}"]`
-    );
-
-
-  buttons.forEach(
-    (button) => {
-
-      button.disabled =
-        disabled;
-
-      button.textContent =
-        text;
-
-    }
-  );
-
-}
-
-
-// ======================================================
-// RENDER EARN TASKS
-// ======================================================
-
-function renderEarnTasks(
-  tasks
-) {
-
-  const list =
-    document.getElementById(
-      "taskList"
-    );
-
-
-  if (!list) {
-
-    return;
-
-  }
-
-
-  if (!tasks.length) {
-
-    list.innerHTML = `
-
-      <div class="empty">
-
-        <span class="empty-icon">
-          ${icon("checklist")}
-        </span>
-
-        <strong>
-          No tasks available
-        </strong>
-
-        <span>
-          New earning tasks will appear here
-        </span>
-
-      </div>
-
-    `;
-
-    return;
-
-  }
-
-
-  list.innerHTML =
-    tasks
-      .map(
-        (task) => {
-
-          const taskId =
-            Number(task.id);
-
-
-          const reward =
-            formatMoney(
-              task.reward
-            );
-
-
-          const completed =
-            task.completed === true;
-
-
-          return `
-
-            <div
-              class="feature-card task-card"
-              data-task-id="${taskId}"
-              style="cursor:default;"
-            >
-
-              <div class="feature-icon">
-                ${icon("checklist")}
-              </div>
-
-
-              <div
-                style="
-                  flex:1;
-                  min-width:0;
-                "
-              >
-
-                <strong>
-                  ${escapeHTML(
-                    task.title
-                  )}
-                </strong>
-
-
-                <span>
-                  ${escapeHTML(
-                    task.description ||
-                    "Complete this task to earn a reward"
-                  )}
-                </span>
-
-
-                <small
-                  style="
-                    display:block;
-                    margin-top:6px;
-                    font-weight:700;
-                    opacity:.9;
-                  "
-                >
-                  Reward: ${reward}
-                </small>
-
-              </div>
-
-
-              <button
-                type="button"
-                class="primary-action task-claim"
-                data-task-id="${taskId}"
-                ${completed ? "disabled" : ""}
-                style="
-                  width:auto;
-                  min-width:82px;
-                  padding:10px 12px;
-                  margin-left:8px;
-                  white-space:nowrap;
-                "
-              >
-
-                ${
-                  completed
-                    ? "Completed"
-                    : "Claim"
-                }
-
-              </button>
-
-            </div>
-
-          `;
-
-        }
-      )
-      .join("");
-
-}
-
-
-// ======================================================
-// LOAD EARN TASKS
-// ======================================================
-
-async function loadEarnTasks() {
-
-  const list =
-    document.getElementById(
-      "taskList"
-    );
-
-
-  if (!list) {
-
-    return;
-
-  }
-
-
-  list.innerHTML = `
-
-    <div class="empty">
-
-      <strong>
-        Loading tasks...
-      </strong>
-
-      <span>
-        Please wait
-      </span>
-
-    </div>
-
-  `;
-
-
-  try {
-
-    const data =
-      await taskaAPI(
-        "/api/tasks"
-      );
-
-
-    earnTasks =
-      Array.isArray(
-        data.tasks
-      )
-        ? data.tasks
-        : [];
-
-
-    renderEarnTasks(
-      earnTasks
-    );
-
-
-    console.log(
-      "Taska tasks loaded:",
-      earnTasks
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "Taska: Failed to load tasks:",
-      error
-    );
-
-
-    list.innerHTML = `
-
-      <div class="empty">
-
-        <strong>
-          Unable to load tasks
-        </strong>
-
-        <span>
-          ${escapeHTML(
-            error.message
-          )}
-        </span>
-
-        <button
-          type="button"
-          class="secondary-action"
-          id="retryTasks"
-        >
-          Try Again
-        </button>
-
-      </div>
-
-    `;
-
-
-    const retry =
-      document.getElementById(
-        "retryTasks"
-      );
-
-
-    if (retry) {
-
-      retry.addEventListener(
-        "click",
-        loadEarnTasks
-      );
-
-    }
-
-  }
-
-}
-
-
-// ======================================================
-// CLAIM TASK
-// ======================================================
-
-async function claimTask(
-  taskId
-) {
-
-  const numericTaskId =
-    Number(taskId);
-
-
-  if (
-    !Number.isFinite(
-      numericTaskId
-    )
-  ) {
-
-    showToast(
-      "Invalid task"
-    );
-
-    return;
-
-  }
-
-
-  const task =
-    earnTasks.find(
-      (item) =>
-        Number(item.id) ===
-        numericTaskId
-    );
-
-
-  if (!task) {
-
-    showToast(
-      "Task not found"
-    );
-
-    console.error(
-      "Taska: Task not found:",
-      numericTaskId,
-      earnTasks
-    );
-
-    return;
-
-  }
-
-
-  // ----------------------------------------------------
-  // ALREADY COMPLETED
-  // ----------------------------------------------------
-
-  if (
-    task.completed === true
-  ) {
-
-    showToast(
-      "This task is already completed"
-    );
-
-    return;
-
-  }
-
-
-  // ----------------------------------------------------
-  // PREVENT DOUBLE REQUEST
-  // ----------------------------------------------------
-
-  if (
-    claimingTasks.has(
-      numericTaskId
-    )
-  ) {
-
-    return;
-
-  }
-
-
-  // ----------------------------------------------------
-  // GET PERSISTENT START TIME
-  // ----------------------------------------------------
-
-  let startedAt =
-    getTaskStartTime(
-      numericTaskId
-    );
-
-
-  // ----------------------------------------------------
-  // FIRST CLICK
-  // ----------------------------------------------------
-
-  if (!startedAt) {
-
-    const now =
-      Date.now();
-
-
-    saveTaskStartTime(
-      numericTaskId,
-      now
-    );
-
-
-    startedAt =
-      now;
-
-
-    // Open task destination
-
-    if (
-      task.target_url
-    ) {
-
-      const opened =
-        openTaskURL(
-          task.target_url
-        );
-
-
-      if (opened) {
-
-        showToast(
-          "Task opened. Complete it, then return and tap Claim."
-        );
-
-      } else {
-
-        showToast(
-          "Task link could not be opened"
-        );
-
-      }
-
-    } else {
-
-      showToast(
-        "Complete the task, then return and tap Claim"
-      );
-
-    }
-
-
-    setTaskButton(
-      numericTaskId,
-      "Claim",
-      false
-    );
-
-
-    haptic("light");
-
-
-    return;
-
-  }
-
-
-  // ----------------------------------------------------
-  // MINIMUM WAIT
-  // ----------------------------------------------------
-
-  const minimumWait =
-    3000;
-
-
-  const elapsed =
-    Date.now() -
-    startedAt;
-
-
-  if (
-    elapsed <
-    minimumWait
-  ) {
-
-    const remaining =
-      Math.ceil(
-        (
-          minimumWait -
-          elapsed
-        ) / 1000
-      );
-
-
-    showToast(
-      `Please wait ${remaining} more second${remaining > 1 ? "s" : ""}`
-    );
-
-
-    return;
-
-  }
-
-
-  // ----------------------------------------------------
-  // CLAIMING
-  // ----------------------------------------------------
-
-  claimingTasks.add(
-    numericTaskId
-  );
-
-
-  setTaskButton(
-    numericTaskId,
-    "Claiming...",
-    true
-  );
-
-
-  haptic("light");
-
-
-  try {
-
-    console.log(
-      "Taska: Claiming task:",
-      numericTaskId
-    );
-
-
-    const data =
-      await taskaAPI(
-        "/api/tasks/complete",
-        {
-          task_id:
-            numericTaskId
-        }
-      );
-
-
-    console.log(
-      "Taska: Task complete response:",
-      data
-    );
-
-
-    // --------------------------------------------------
-    // UPDATE TASK STATE
-    // --------------------------------------------------
-
-    task.completed =
-      true;
-
-
-    // --------------------------------------------------
-    // UPDATE BALANCE FROM SERVER
-    // --------------------------------------------------
-
-    if (
-      data.balance !==
-      undefined
-    ) {
-
-      refreshTaskaBalance(
-        data.balance
-      );
-
-    }
-
-
-    // --------------------------------------------------
-    // CLEAR PERSISTENT START TIME
-    // --------------------------------------------------
-
-    clearTaskStartTime(
-      numericTaskId
-    );
-
-
-    // --------------------------------------------------
-    // SUCCESS
-    // --------------------------------------------------
-
-    showToast(
-      `Reward added: ${formatMoney(
-        data.reward
-      )}`
-    );
-
-
-    haptic("medium");
-
-
-    // --------------------------------------------------
-    // RE-RENDER TASKS
-    // --------------------------------------------------
-
-    renderEarnTasks(
-      earnTasks
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "Taska: Claim failed:",
-      error
-    );
-
-
-    setTaskButton(
-      numericTaskId,
-      "Claim",
-      false
-    );
-
-
-    showToast(
-      error.message
-    );
-
-
-  } finally {
-
-    claimingTasks.delete(
-      numericTaskId
-    );
-
-  }
-
-}
-
-
-// ======================================================
-// DAILY CHECK-IN
-// ======================================================
-
-async function claimDailyCheckin(
-  sourceButton = null
-) {
-
-  const button =
-    sourceButton ||
-    document.querySelector(
-      '[data-action="checkin"]'
-    );
-
-
-  if (button) {
-
-    button.disabled =
-      true;
-
-  }
-
-
-  try {
-
-    const data =
-      await taskaAPI(
-        "/api/checkin"
-      );
-
-
-    if (
-      data.balance !==
-      undefined
-    ) {
-
-      refreshTaskaBalance(
-        data.balance
-      );
-
-    }
-
-
-    showToast(
-      `Daily reward added: ${formatMoney(
-        data.reward
-      )}`
-    );
-
-
-    haptic("medium");
-
-
-  } catch (error) {
-
-    console.error(
-      "Taska: Daily check-in failed:",
-      error
-    );
-
-
-    showToast(
-      error.message
-    );
-
-
-  } finally {
-
-    if (button) {
-
-      button.disabled =
-        false;
-
-    }
-
-  }
-
-}
-
-
-// ======================================================
 // LOAD PAGE
 // ======================================================
 
@@ -2305,9 +1580,7 @@ function loadPage(
   // HOME
   // ====================================================
 
-  if (
-    page === "Home"
-  ) {
+  if (page === "Home") {
 
     app.innerHTML =
       initialHomeHTML;
@@ -2337,24 +1610,10 @@ function loadPage(
   // EARN
   // ====================================================
 
-  if (
-    page === "Earn"
-  ) {
+  if (page === "Earn") {
 
     app.innerHTML =
       earnPage();
-
-
-    setupUserUI();
-
-
-    if (taskaUser) {
-
-      refreshTaskaBalance(
-        taskaUser.balance
-      );
-
-    }
 
 
     setupEarnEvents();
@@ -2369,9 +1628,7 @@ function loadPage(
   // REFERRAL
   // ====================================================
 
-  if (
-    page === "Referral"
-  ) {
+  if (page === "Referral") {
 
     app.innerHTML =
       referralPage();
@@ -2389,9 +1646,7 @@ function loadPage(
   // WALLET
   // ====================================================
 
-  if (
-    page === "Wallet"
-  ) {
+  if (page === "Wallet") {
 
     app.innerHTML =
       walletPage();
@@ -2409,9 +1664,7 @@ function loadPage(
   // PROFILE
   // ====================================================
 
-  if (
-    page === "Profile"
-  ) {
+  if (page === "Profile") {
 
     app.innerHTML =
       profilePage();
@@ -2433,6 +1686,7 @@ function loadPage(
 
 function setupHomeEvents() {
 
+
   // ----------------------------------------------------
   // QUICK CARDS
   // ----------------------------------------------------
@@ -2448,18 +1702,31 @@ function setupHomeEvents() {
           "click",
           () => {
 
-            const feature =
-              card.dataset.feature ||
-              card.dataset.action ||
-              "";
+            const action =
+              (
+                card.dataset.action ||
+                ""
+              )
+                .toLowerCase();
 
+
+            const feature =
+              (
+                card.dataset.feature ||
+                ""
+              )
+                .toLowerCase();
+
+
+            // ------------------------------------------
+            // DAILY CHECK-IN
+            // ------------------------------------------
 
             if (
-              feature
-                .toLowerCase()
-                .includes(
-                  "daily check"
-                )
+              action === "checkin" ||
+              feature.includes(
+                "daily check"
+              )
             ) {
 
               claimDailyCheckin(
@@ -2472,7 +1739,10 @@ function setupHomeEvents() {
 
 
             showToast(
-              `${feature || "This feature"} will be available soon`
+              `${
+                card.dataset.feature ||
+                "This feature"
+              } will be available soon`
             );
 
 
@@ -2662,14 +1932,848 @@ function setupHomeEvents() {
 
 
 // ======================================================
+// RENDER EARN TASKS
+// ======================================================
+
+function renderEarnTasks(
+  tasks
+) {
+
+  const list =
+    document.getElementById(
+      "taskList"
+    );
+
+
+  if (!list) {
+
+    return;
+
+  }
+
+
+  if (
+    !Array.isArray(tasks) ||
+    tasks.length === 0
+  ) {
+
+    list.innerHTML = `
+
+      <div class="empty">
+
+        <span class="empty-icon">
+          ${icon("checklist")}
+        </span>
+
+        <strong>
+          No tasks available
+        </strong>
+
+        <span>
+          New earning tasks will appear here
+        </span>
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  list.innerHTML =
+    tasks
+      .map(
+        (task) => {
+
+          const taskId =
+            Number(
+              task.id
+            );
+
+
+          const reward =
+            formatMoney(
+              task.reward
+            );
+
+
+          // ------------------------------------------------
+          // IMPORTANT:
+          // Handle boolean / number / string
+          // ------------------------------------------------
+
+          const completed =
+            task.completed === true ||
+            task.completed === 1 ||
+            task.completed === "1" ||
+            task.completed === "true";
+
+
+          return `
+
+            <div
+              class="feature-card task-card"
+              data-task-id="${taskId}"
+              style="cursor:default;"
+            >
+
+              <div class="feature-icon">
+                ${icon("checklist")}
+              </div>
+
+
+              <div
+                style="
+                  flex:1;
+                  min-width:0;
+                "
+              >
+
+                <strong>
+                  ${escapeHTML(
+                    task.title ||
+                    "Task"
+                  )}
+                </strong>
+
+
+                <span>
+                  ${escapeHTML(
+                    task.description ||
+                    "Complete this task to earn a reward"
+                  )}
+                </span>
+
+
+                <small
+                  style="
+                    display:block;
+                    margin-top:6px;
+                    font-weight:700;
+                    opacity:.9;
+                  "
+                >
+                  Reward: ${reward}
+                </small>
+
+              </div>
+
+
+              <button
+                type="button"
+                class="primary-action task-claim"
+                data-task-id="${taskId}"
+                ${
+                  completed
+                    ? "disabled"
+                    : ""
+                }
+                ${
+                  completed
+                    ? 'data-completed="true"'
+                    : 'data-completed="false"'
+                }
+                style="
+                  width:auto;
+                  min-width:82px;
+                  padding:10px 12px;
+                  margin-left:8px;
+                  white-space:nowrap;
+                "
+              >
+
+                ${
+                  completed
+                    ? "Completed"
+                    : "Claim"
+                }
+
+              </button>
+
+            </div>
+
+          `;
+
+        }
+      )
+      .join("");
+
+}
+
+
+// ======================================================
+// LOAD EARN TASKS
+// ======================================================
+
+async function loadEarnTasks() {
+
+  const list =
+    document.getElementById(
+      "taskList"
+    );
+
+
+  if (!list) {
+
+    return;
+
+  }
+
+
+  list.innerHTML = `
+
+    <div class="empty">
+
+      <strong>
+        Loading tasks...
+      </strong>
+
+      <span>
+        Please wait
+      </span>
+
+    </div>
+
+  `;
+
+
+  try {
+
+    console.log(
+      "Taska: Loading tasks..."
+    );
+
+
+    const data =
+      await taskaAPI(
+        "/api/tasks"
+      );
+
+
+    console.log(
+      "Taska: Tasks response:",
+      data
+    );
+
+
+    earnTasks =
+      Array.isArray(
+        data.tasks
+      )
+        ? data.tasks
+        : [];
+
+
+    renderEarnTasks(
+      earnTasks
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Taska: Load tasks error:",
+      error
+    );
+
+
+    list.innerHTML = `
+
+      <div class="empty">
+
+        <strong>
+          Unable to load tasks
+        </strong>
+
+        <span>
+          ${escapeHTML(
+            error?.message ||
+            "Unknown error"
+          )}
+        </span>
+
+
+        <button
+          type="button"
+          class="secondary-action"
+          id="retryTasks"
+        >
+          Try Again
+        </button>
+
+      </div>
+
+    `;
+
+
+    const retry =
+      document.getElementById(
+        "retryTasks"
+      );
+
+
+    if (retry) {
+
+      retry.addEventListener(
+        "click",
+        loadEarnTasks
+      );
+
+    }
+
+  }
+
+}
+
+
+// ======================================================
+// CLAIM TASK
+// ======================================================
+
+async function claimTask(
+  taskId,
+  button = null
+) {
+
+  const numericTaskId =
+    Number(
+      taskId
+    );
+
+
+  // ----------------------------------------------------
+  // Validate task ID
+  // ----------------------------------------------------
+
+  if (
+    !Number.isFinite(
+      numericTaskId
+    )
+  ) {
+
+    console.error(
+      "Taska: Invalid task ID:",
+      taskId
+    );
+
+
+    showToast(
+      "Invalid task"
+    );
+
+
+    return;
+
+  }
+
+
+  console.log(
+    "Taska: claimTask() called:",
+    numericTaskId
+  );
+
+
+  // ----------------------------------------------------
+  // Find task
+  // ----------------------------------------------------
+
+  const task =
+    earnTasks.find(
+      (item) =>
+        Number(item.id) ===
+        numericTaskId
+    );
+
+
+  if (!task) {
+
+    console.error(
+      "Taska: Task not found:",
+      numericTaskId,
+      earnTasks
+    );
+
+
+    showToast(
+      "Task not found. Please reload tasks."
+    );
+
+
+    return;
+
+  }
+
+
+  // ----------------------------------------------------
+  // Check completed
+  // ----------------------------------------------------
+
+  const alreadyCompleted =
+    task.completed === true ||
+    task.completed === 1 ||
+    task.completed === "1" ||
+    task.completed === "true";
+
+
+  if (
+    alreadyCompleted
+  ) {
+
+    showToast(
+      "This task is already completed"
+    );
+
+
+    return;
+
+  }
+
+
+  // ----------------------------------------------------
+  // Find button if necessary
+  // ----------------------------------------------------
+
+  if (!button) {
+
+    button =
+      document.querySelector(
+        `.task-claim[data-task-id="${numericTaskId}"]`
+      );
+
+  }
+
+
+  // ====================================================
+  // FIRST CLICK
+  // ====================================================
+
+  const startedAt =
+    taskStartTimes.get(
+      numericTaskId
+    );
+
+
+  if (!startedAt) {
+
+    console.log(
+      "Taska: Starting task:",
+      numericTaskId
+    );
+
+
+    // Save start time BEFORE opening URL.
+    taskStartTimes.set(
+      numericTaskId,
+      Date.now()
+    );
+
+
+    // --------------------------------------------------
+    // Open target URL
+    // --------------------------------------------------
+
+    if (
+      task.target_url
+    ) {
+
+      try {
+
+        const targetURL =
+          String(
+            task.target_url
+          );
+
+
+        if (
+          targetURL.startsWith(
+            "https://t.me/"
+          ) &&
+          tg?.openTelegramLink
+        ) {
+
+          tg.openTelegramLink(
+            targetURL
+          );
+
+        } else {
+
+          window.open(
+            targetURL,
+            "_blank"
+          );
+
+        }
+
+      } catch (error) {
+
+        console.error(
+          "Taska: Unable to open task URL:",
+          error
+        );
+
+      }
+
+    }
+
+
+    // --------------------------------------------------
+    // First click message
+    // --------------------------------------------------
+
+    showToast(
+      "Complete the task, then tap Claim again"
+    );
+
+
+    haptic("light");
+
+
+    return;
+
+  }
+
+
+  // ====================================================
+  // WAIT CHECK
+  // ====================================================
+
+  const elapsed =
+    Date.now() -
+    startedAt;
+
+
+  if (
+    elapsed <
+    TASK_MINIMUM_WAIT
+  ) {
+
+    const remaining =
+      Math.ceil(
+        (
+          TASK_MINIMUM_WAIT -
+          elapsed
+        ) / 1000
+      );
+
+
+    showToast(
+      `Please wait ${remaining} more second${
+        remaining > 1
+          ? "s"
+          : ""
+      }`
+    );
+
+
+    haptic("light");
+
+
+    return;
+
+  }
+
+
+  // ====================================================
+  // PREVENT DOUBLE CLAIM
+  // ====================================================
+
+  if (button) {
+
+    if (
+      button.dataset.claiming ===
+      "true"
+    ) {
+
+      console.log(
+        "Taska: Claim already in progress."
+      );
+
+
+      return;
+
+    }
+
+
+    button.dataset.claiming =
+      "true";
+
+
+    button.disabled =
+      true;
+
+
+    button.textContent =
+      "Claiming...";
+
+  }
+
+
+  // ====================================================
+  // CALL BACKEND
+  // ====================================================
+
+  try {
+
+    console.log(
+      "Taska: Calling /api/tasks/complete",
+      {
+        task_id:
+          numericTaskId
+      }
+    );
+
+
+    const data =
+      await taskaAPI(
+        "/api/tasks/complete",
+        {
+          task_id:
+            numericTaskId
+        }
+      );
+
+
+    console.log(
+      "Taska: Claim response:",
+      data
+    );
+
+
+    // --------------------------------------------------
+    // Mark task completed locally
+    // --------------------------------------------------
+
+    task.completed =
+      true;
+
+
+    // --------------------------------------------------
+    // IMPORTANT:
+    // Backend/database balance is source of truth.
+    // --------------------------------------------------
+
+    if (
+      data.balance !== undefined &&
+      data.balance !== null
+    ) {
+
+      refreshTaskaBalance(
+        data.balance
+      );
+
+    }
+
+
+    // --------------------------------------------------
+    // Remove task timer
+    // --------------------------------------------------
+
+    taskStartTimes.delete(
+      numericTaskId
+    );
+
+
+    // --------------------------------------------------
+    // Success
+    // --------------------------------------------------
+
+    showToast(
+      `Reward added: ${formatMoney(
+        data.reward
+      )}`
+    );
+
+
+    haptic("medium");
+
+
+    // --------------------------------------------------
+    // Re-render
+    // --------------------------------------------------
+
+    renderEarnTasks(
+      earnTasks
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Taska: Claim task error:",
+      error
+    );
+
+
+    // --------------------------------------------------
+    // Restore button
+    // --------------------------------------------------
+
+    if (button) {
+
+      button.dataset.claiming =
+        "false";
+
+
+      button.disabled =
+        false;
+
+
+      button.textContent =
+        "Claim";
+
+    }
+
+
+    showToast(
+      error?.message ||
+      "Unable to claim task"
+    );
+
+
+    haptic("light");
+
+  }
+
+}
+
+
+// ======================================================
+// DAILY CHECK-IN
+// ======================================================
+
+async function claimDailyCheckin(
+  sourceButton = null
+) {
+
+  const button =
+    sourceButton ||
+    document.querySelector(
+      '[data-action="checkin"]'
+    );
+
+
+  // ----------------------------------------------------
+  // Prevent multiple clicks
+  // ----------------------------------------------------
+
+  if (
+    button?.dataset.claiming ===
+    "true"
+  ) {
+
+    return;
+
+  }
+
+
+  if (button) {
+
+    button.dataset.claiming =
+      "true";
+
+
+    button.disabled =
+      true;
+
+  }
+
+
+  try {
+
+    console.log(
+      "Taska: Claiming daily check-in..."
+    );
+
+
+    const data =
+      await taskaAPI(
+        "/api/checkin"
+      );
+
+
+    console.log(
+      "Taska: Check-in response:",
+      data
+    );
+
+
+    // --------------------------------------------------
+    // Update balance
+    // --------------------------------------------------
+
+    if (
+      data.balance !== undefined &&
+      data.balance !== null
+    ) {
+
+      refreshTaskaBalance(
+        data.balance
+      );
+
+    }
+
+
+    // --------------------------------------------------
+    // Success
+    // --------------------------------------------------
+
+    showToast(
+      `Daily reward added: ${formatMoney(
+        data.reward
+      )}`
+    );
+
+
+    haptic("medium");
+
+
+  } catch (error) {
+
+    console.error(
+      "Taska: Daily check-in error:",
+      error
+    );
+
+
+    showToast(
+      error?.message ||
+      "Unable to claim daily reward"
+    );
+
+
+    haptic("light");
+
+
+  } finally {
+
+    if (button) {
+
+      button.dataset.claiming =
+        "false";
+
+
+      button.disabled =
+        false;
+
+    }
+
+  }
+
+}
+
+
+// ======================================================
 // EARN EVENTS
 // ======================================================
 
 function setupEarnEvents() {
 
-  // ----------------------------------------------------
+
+  // ====================================================
   // DAILY CHECK-IN
-  // ----------------------------------------------------
+  // ====================================================
 
   const checkin =
     document.querySelector(
@@ -2693,9 +2797,9 @@ function setupEarnEvents() {
   }
 
 
-  // ----------------------------------------------------
-  // ADS
-  // ----------------------------------------------------
+  // ====================================================
+  // WATCH ADS
+  // ====================================================
 
   const ads =
     document.querySelector(
@@ -2722,46 +2826,77 @@ function setupEarnEvents() {
   }
 
 
-  // ----------------------------------------------------
-  // TASK CLAIM BUTTONS
-  // ----------------------------------------------------
+  // ====================================================
+  // IMPORTANT:
+  // TASK CLAIM EVENT DELEGATION
+  // ====================================================
+  //
+  // DO NOT use:
+  //
+  // querySelectorAll(".task-claim")
+  //
+  // because task buttons are created later by
+  // loadEarnTasks().
+  //
+  // Instead, listen on #taskList.
+  // ====================================================
 
-  document
-    .querySelectorAll(
-      ".task-claim"
-    )
-    .forEach(
-      (button) => {
-
-        button.addEventListener(
-          "click",
-          (event) => {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-
-            const taskId =
-              Number(
-                button.dataset.taskId
-              );
+  const taskList =
+    document.getElementById(
+      "taskList"
+    );
 
 
-            claimTask(
-              taskId
-            );
+  if (taskList) {
 
-          }
+    taskList.addEventListener(
+      "click",
+      (event) => {
+
+        const button =
+          event.target.closest(
+            ".task-claim"
+          );
+
+
+        if (!button) {
+
+          return;
+
+        }
+
+
+        event.preventDefault();
+
+        event.stopPropagation();
+
+
+        const taskId =
+          Number(
+            button.dataset.taskId
+          );
+
+
+        console.log(
+          "Taska: CLAIM BUTTON CLICKED:",
+          taskId
+        );
+
+
+        claimTask(
+          taskId,
+          button
         );
 
       }
     );
 
+  }
 
-  // ----------------------------------------------------
+
+  // ====================================================
   // LOAD TASKS
-  // ----------------------------------------------------
+  // ====================================================
 
   loadEarnTasks();
 
@@ -2788,6 +2923,10 @@ function setupReferralEvents() {
       referralCode
     )}`;
 
+
+  // ----------------------------------------------------
+  // COPY
+  // ----------------------------------------------------
 
   const copyButton =
     document.getElementById(
@@ -2825,7 +2964,13 @@ function setupReferralEvents() {
 
           }
 
-        } catch {
+        } catch (error) {
+
+          console.error(
+            "Taska: Copy referral error:",
+            error
+          );
+
 
           showToast(
             "Unable to copy the link"
@@ -2841,6 +2986,10 @@ function setupReferralEvents() {
 
   }
 
+
+  // ----------------------------------------------------
+  // SHARE
+  // ----------------------------------------------------
 
   const shareButton =
     document.getElementById(
@@ -2876,6 +3025,9 @@ function setupReferralEvents() {
           );
 
         }
+
+
+        haptic("light");
 
       }
     );
@@ -2993,6 +3145,10 @@ function setupNavigation() {
           "click",
           () => {
 
+            // ------------------------------------------
+            // Remove active
+            // ------------------------------------------
+
             document
               .querySelectorAll(
                 ".nav-btn"
@@ -3008,24 +3164,46 @@ function setupNavigation() {
               );
 
 
+            // ------------------------------------------
+            // Add active
+            // ------------------------------------------
+
             button.classList.add(
               "active"
             );
 
 
+            // ------------------------------------------
+            // Get page
+            // ------------------------------------------
+
             const page =
               button.dataset.page;
 
+
+            if (!page) {
+
+              return;
+
+            }
+
+
+            // ------------------------------------------
+            // Load page
+            // ------------------------------------------
 
             loadPage(
               page
             );
 
 
+            // ------------------------------------------
+            // Scroll top
+            // ------------------------------------------
+
             window.scrollTo({
               top: 0,
-              behavior:
-                "smooth"
+              behavior: "smooth"
             });
 
           }
@@ -3041,13 +3219,9 @@ function setupNavigation() {
 // START APP
 // ======================================================
 
-if (app) {
+setupNavigation();
 
-  setupNavigation();
-
-  setupHomeEvents();
-
-}
+setupHomeEvents();
 
 
 // ======================================================
@@ -3070,9 +3244,20 @@ authenticateTaskaUser()
       setupUserUI();
 
 
-      refreshTaskaBalance(
-        authenticatedUser.balance
-      );
+      // ------------------------------------------------
+      // Latest database balance
+      // ------------------------------------------------
+
+      if (
+        authenticatedUser.balance !==
+        undefined
+      ) {
+
+        refreshTaskaBalance(
+          authenticatedUser.balance
+        );
+
+      }
 
 
       console.log(
@@ -3080,64 +3265,23 @@ authenticateTaskaUser()
       );
 
     }
+  )
+  .catch(
+    (error) => {
+
+      console.error(
+        "Taska: Authentication startup error:",
+        error
+      );
+
+    }
   );
 
 
 // ======================================================
-// HANDLE TELEGRAM WEBAPP RETURN
-// ======================================================
-//
-// When Telegram brings the Mini App back into view,
-// reload tasks from the server so the UI reflects the
-// latest completion state.
+// DEBUG HELPER
 // ======================================================
 
-document.addEventListener(
-  "visibilitychange",
-  () => {
-
-    if (
-      document.visibilityState ===
-      "visible"
-    ) {
-
-      const taskList =
-        document.getElementById(
-          "taskList"
-        );
-
-
-      if (taskList) {
-
-        loadEarnTasks();
-
-      }
-
-    }
-
-  }
-);
-
-
-// ======================================================
-// HANDLE BFCACHE / PAGE RETURN
-// ======================================================
-
-window.addEventListener(
-  "pageshow",
-  () => {
-
-    const taskList =
-      document.getElementById(
-        "taskList"
-      );
-
-
-    if (taskList) {
-
-      loadEarnTasks();
-
-    }
-
-  }
+console.log(
+  "Taska frontend loaded successfully."
 );
