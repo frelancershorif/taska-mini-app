@@ -12,13 +12,19 @@ const tg =
   window.Telegram?.WebApp || null;
 
 
-// Taska Backend
+// ======================================================
+// TASKA BACKEND
+// ======================================================
+
 const API_URL =
   "https://taska-mini-app.onrender.com";
 
 
-// Earn page state
+// ======================================================
+// EARN PAGE STATE
 // Server remains the source of truth.
+// ======================================================
+
 let earnTasks = [];
 
 const taskStartTimes =
@@ -112,11 +118,18 @@ function refreshTaskaBalance(
   if (!taskaUser) return;
 
 
-  taskaUser.balance =
+  const numericBalance =
     Number(
       balance || 0
     );
 
+
+  taskaUser.balance =
+    numericBalance;
+
+
+  // Update every balance element
+  // currently visible in the app.
 
   const balanceElements =
     document.querySelectorAll(
@@ -127,29 +140,10 @@ function refreshTaskaBalance(
   balanceElements.forEach(
     (element) => {
 
-      if (
-        element.classList
-          .contains(
-            "wallet-balance"
-          )
-      ) {
-
-        element.textContent =
-          formatMoney(
-            taskaUser.balance
-          );
-
-      } else if (
-        element.id ===
-        "balance"
-      ) {
-
-        element.textContent =
-          formatMoney(
-            taskaUser.balance
-          );
-
-      }
+      element.textContent =
+        formatMoney(
+          numericBalance
+        );
 
     }
   );
@@ -341,7 +335,6 @@ function getPhoto() {
 
 
   return (
-    currentUser?.photo_url ||
     currentUser?.photo_url ||
     ""
   );
@@ -640,8 +633,8 @@ async function authenticateTaskaUser() {
               initData:
                 tg.initData
             })
-        }
-      );
+          }
+        );
 
 
     const data =
@@ -678,6 +671,15 @@ async function authenticateTaskaUser() {
 
 
     setupUserUI();
+
+
+    // IMPORTANT:
+    // Apply the database/server balance
+    // to the currently visible Home page.
+
+    refreshTaskaBalance(
+      taskaUser.balance
+    );
 
 
     return taskaUser;
@@ -1340,8 +1342,7 @@ function profilePage() {
 
   `;
 
-        }
-
+}
 
 
 // ======================================================
@@ -1363,10 +1364,20 @@ function loadPage(page) {
       initialHomeHTML;
 
 
-    // Re-apply Telegram/backend
-    // user data after Home rebuild.
+    // Restore user information.
 
     setupUserUI();
+
+
+    // Restore latest server balance.
+
+    if (taskaUser) {
+
+      refreshTaskaBalance(
+        taskaUser.balance
+      );
+
+    }
 
 
     setupHomeEvents();
@@ -1385,6 +1396,17 @@ function loadPage(page) {
 
     app.innerHTML =
       earnPage();
+
+
+    // Apply current balance if available.
+
+    if (taskaUser) {
+
+      refreshTaskaBalance(
+        taskaUser.balance
+      );
+
+    }
 
 
     setupEarnEvents();
@@ -1457,12 +1479,17 @@ function loadPage(page) {
 
 function setupHomeEvents() {
 
+
+  // ----------------------------------------------------
+  // QUICK CARDS
+  // ----------------------------------------------------
+
   document
     .querySelectorAll(
       ".quick-card"
     )
     .forEach(
-      card => {
+      (card) => {
 
         card.addEventListener(
           "click",
@@ -1470,11 +1497,37 @@ function setupHomeEvents() {
 
             const feature =
               card.dataset.feature ||
-              "This feature";
+              card.dataset.action ||
+              "";
 
+
+            // ------------------------------------------
+            // DAILY CHECK-IN
+            // ------------------------------------------
+
+            if (
+              feature
+                .toLowerCase()
+                .includes(
+                  "daily check"
+                )
+            ) {
+
+              claimDailyCheckin(
+                card
+              );
+
+              return;
+
+            }
+
+
+            // ------------------------------------------
+            // OTHER FEATURES
+            // ------------------------------------------
 
             showToast(
-              `${feature} will be available soon`
+              `${feature || "This feature"} will be available soon`
             );
 
 
@@ -1487,12 +1540,16 @@ function setupHomeEvents() {
     );
 
 
+  // ----------------------------------------------------
+  // FEATURE BANNERS
+  // ----------------------------------------------------
+
   document
     .querySelectorAll(
       ".feature-banner"
     )
     .forEach(
-      banner => {
+      (banner) => {
 
         banner.addEventListener(
           "click",
@@ -1511,6 +1568,10 @@ function setupHomeEvents() {
       }
     );
 
+
+  // ----------------------------------------------------
+  // WITHDRAW
+  // ----------------------------------------------------
 
   const withdraw =
     document.getElementById(
@@ -1537,6 +1598,10 @@ function setupHomeEvents() {
   }
 
 
+  // ----------------------------------------------------
+  // NOTIFICATION
+  // ----------------------------------------------------
+
   const notification =
     document.getElementById(
       "notificationBtn"
@@ -1561,6 +1626,10 @@ function setupHomeEvents() {
 
   }
 
+
+  // ----------------------------------------------------
+  // STATS
+  // ----------------------------------------------------
 
   const stats =
     document.getElementById(
@@ -1587,6 +1656,10 @@ function setupHomeEvents() {
   }
 
 
+  // ----------------------------------------------------
+  // TRANSACTIONS
+  // ----------------------------------------------------
+
   const transactions =
     document.getElementById(
       "viewTransactions"
@@ -1611,6 +1684,10 @@ function setupHomeEvents() {
 
   }
 
+
+  // ----------------------------------------------------
+  // BALANCE EYE
+  // ----------------------------------------------------
 
   const eye =
     document.querySelector(
@@ -1640,7 +1717,7 @@ function setupHomeEvents() {
 
 
 // ======================================================
-// EARN EVENTS
+// EARN TASKS
 // ======================================================
 
 function renderEarnTasks(
@@ -1693,6 +1770,7 @@ function renderEarnTasks(
               task.reward
             );
 
+
           const completed =
             task.completed;
 
@@ -1720,12 +1798,14 @@ function renderEarnTasks(
                   )}
                 </strong>
 
+
                 <span>
                   ${escapeHTML(
                     task.description ||
                     "Complete this task to earn a reward"
                   )}
                 </span>
+
 
                 <small
                   style="
@@ -1773,6 +1853,10 @@ function renderEarnTasks(
 
 }
 
+
+// ======================================================
+// LOAD EARN TASKS
+// ======================================================
 
 async function loadEarnTasks() {
 
@@ -1854,6 +1938,10 @@ async function loadEarnTasks() {
 
 }
 
+
+// ======================================================
+// CLAIM TASK
+// ======================================================
 
 async function claimTask(
   taskId
@@ -2028,9 +2116,18 @@ async function claimTask(
 }
 
 
-async function claimDailyCheckin() {
+// ======================================================
+// DAILY CHECK-IN
+// ======================================================
+
+async function claimDailyCheckin(
+  sourceButton = null
+) {
+
+  // Find the currently clicked button/card.
 
   const button =
+    sourceButton ||
     document.querySelector(
       '[data-action="checkin"]'
     );
@@ -2046,16 +2143,28 @@ async function claimDailyCheckin() {
 
   try {
 
+    // ----------------------------------------------
+    // Call backend
+    // ----------------------------------------------
+
     const data =
       await taskaAPI(
         "/api/checkin"
       );
 
 
+    // ----------------------------------------------
+    // Update local/server balance
+    // ----------------------------------------------
+
     refreshTaskaBalance(
       data.balance
     );
 
+
+    // ----------------------------------------------
+    // Success message
+    // ----------------------------------------------
 
     showToast(
       `Daily reward added: ${formatMoney(
@@ -2068,6 +2177,10 @@ async function claimDailyCheckin() {
 
 
   } catch (error) {
+
+    // ----------------------------------------------
+    // Already claimed / other server error
+    // ----------------------------------------------
 
     showToast(
       error.message
@@ -2088,7 +2201,16 @@ async function claimDailyCheckin() {
 }
 
 
+// ======================================================
+// EARN EVENTS
+// ======================================================
+
 function setupEarnEvents() {
+
+
+  // ----------------------------------------------------
+  // DAILY CHECK-IN
+  // ----------------------------------------------------
 
   const checkin =
     document.querySelector(
@@ -2100,11 +2222,21 @@ function setupEarnEvents() {
 
     checkin.addEventListener(
       "click",
-      claimDailyCheckin
+      () => {
+
+        claimDailyCheckin(
+          checkin
+        );
+
+      }
     );
 
   }
 
+
+  // ----------------------------------------------------
+  // ADS
+  // ----------------------------------------------------
 
   const ads =
     document.querySelector(
@@ -2131,6 +2263,10 @@ function setupEarnEvents() {
   }
 
 
+  // ----------------------------------------------------
+  // TASK CLAIM BUTTONS
+  // ----------------------------------------------------
+
   document
     .querySelectorAll(
       ".task-claim"
@@ -2144,6 +2280,7 @@ function setupEarnEvents() {
 
             event.stopPropagation();
 
+
             claimTask(
               Number(
                 button.dataset.taskId
@@ -2156,6 +2293,10 @@ function setupEarnEvents() {
       }
     );
 
+
+  // ----------------------------------------------------
+  // LOAD TASKS
+  // ----------------------------------------------------
 
   loadEarnTasks();
 
@@ -2182,6 +2323,10 @@ function setupReferralEvents() {
       referralCode
     )}`;
 
+
+  // ----------------------------------------------------
+  // COPY
+  // ----------------------------------------------------
 
   const copyButton =
     document.getElementById(
@@ -2236,6 +2381,10 @@ function setupReferralEvents() {
   }
 
 
+  // ----------------------------------------------------
+  // SHARE
+  // ----------------------------------------------------
+
   const shareButton =
     document.getElementById(
       "shareReferral"
@@ -2276,7 +2425,7 @@ function setupReferralEvents() {
 
   }
 
-    }
+}
 
 
 // ======================================================
@@ -2323,7 +2472,7 @@ function setupProfileEvents() {
       ".profile-item"
     )
     .forEach(
-      item => {
+      (item) => {
 
         item.addEventListener(
           "click",
@@ -2381,7 +2530,7 @@ function setupNavigation() {
       ".nav-btn"
     )
     .forEach(
-      button => {
+      (button) => {
 
         button.addEventListener(
           "click",
@@ -2392,7 +2541,7 @@ function setupNavigation() {
                 ".nav-btn"
               )
               .forEach(
-                btn => {
+                (btn) => {
 
                   btn.classList.remove(
                     "active"
@@ -2458,6 +2607,14 @@ authenticateTaskaUser()
 
 
       setupUserUI();
+
+
+      // Make sure the latest database
+      // balance is visible on the current page.
+
+      refreshTaskaBalance(
+        authenticatedUser.balance
+      );
 
 
       console.log(
