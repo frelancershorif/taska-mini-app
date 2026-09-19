@@ -2948,3 +2948,12 @@ svg {
   }
 
 }
+
+
+    /* =========================================
+   EARN PAGE - AVAILABLE TASKS SPACING
+   ========================================= */
+
+.feature-list + .section-title {
+  margin-top: 28px;
+}
