@@ -95,8 +95,10 @@ svg {
 
 .icon-sprite {
   position: absolute;
+
   width: 0;
   height: 0;
+
   overflow: hidden;
 }
 
@@ -120,6 +122,7 @@ svg {
 
 .header {
   display: flex;
+
   align-items: center;
   justify-content: space-between;
 
@@ -129,6 +132,7 @@ svg {
 
 .user-area {
   display: flex;
+
   align-items: center;
 
   gap: 12px;
@@ -160,7 +164,9 @@ svg {
   font-size: 20px;
   font-weight: 700;
 
-  border: 2px solid rgba(255,255,255,.12);
+  border:
+    2px solid
+    rgba(255,255,255,.12);
 
   background-size: cover;
   background-position: center;
@@ -188,7 +194,9 @@ svg {
   font-weight: 700;
 
   overflow: hidden;
+
   text-overflow: ellipsis;
+
   white-space: nowrap;
 }
 
@@ -202,7 +210,9 @@ svg {
   display: grid;
   place-items: center;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   border-radius: 16px;
 
@@ -234,7 +244,9 @@ svg {
 
   border-radius: 28px;
 
-  border: 1px solid rgba(80,143,255,.18);
+  border:
+    1px solid
+    rgba(80,143,255,.18);
 
   background:
     linear-gradient(
@@ -245,7 +257,8 @@ svg {
     );
 
   box-shadow:
-    0 18px 45px rgba(0,0,0,.25);
+    0 18px 45px
+    rgba(0,0,0,.25);
 
   margin-bottom: 28px;
 }
@@ -277,6 +290,7 @@ svg {
   position: relative;
 
   display: flex;
+
   justify-content: space-between;
   align-items: flex-start;
 }
@@ -311,11 +325,14 @@ svg {
 
   border-radius: 50%;
 
-  border: 1px solid rgba(255,255,255,.08);
+  border:
+    1px solid
+    rgba(255,255,255,.08);
 
   color: #a9c5ff;
 
-  background: rgba(0,0,0,.15);
+  background:
+    rgba(0,0,0,.15);
 
   cursor: pointer;
 }
@@ -342,6 +359,7 @@ svg {
 
 .today {
   display: flex;
+
   flex-direction: column;
 
   gap: 4px;
@@ -365,6 +383,7 @@ svg {
   padding: 0 20px;
 
   display: inline-flex;
+
   align-items: center;
   justify-content: center;
 
@@ -438,6 +457,7 @@ svg {
 
 .section-title h2 {
   display: flex;
+
   align-items: center;
 
   gap: 8px;
@@ -481,7 +501,9 @@ svg {
 
 
 /* =====================================================
-   QUICK GRID
+   QUICK EARN GRID
+   HOME PAGE ONLY
+   2 × 2
 ===================================================== */
 
 .quick-grid {
@@ -504,13 +526,18 @@ svg {
   padding: 18px;
 
   display: flex;
+
   flex-direction: column;
 
   align-items: flex-start;
 
+  justify-content: flex-start;
+
   text-align: left;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   border-radius: 22px;
 
@@ -538,7 +565,8 @@ svg {
 
 
 .quick-card:hover {
-  border-color: rgba(75,143,255,.22);
+  border-color:
+    rgba(75,143,255,.22);
 }
 
 
@@ -547,6 +575,7 @@ svg {
   height: 50px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 17px;
@@ -617,6 +646,7 @@ svg {
   width: 100%;
 
   display: flex;
+
   align-items: center;
 
   gap: 13px;
@@ -627,7 +657,9 @@ svg {
 
   text-align: left;
 
-  border: 1px solid rgba(116,93,255,.25);
+  border:
+    1px solid
+    rgba(116,93,255,.25);
 
   border-radius: 21px;
 
@@ -651,13 +683,15 @@ svg {
   flex: 0 0 48px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 15px;
 
   color: #ffd45a;
 
-  background: rgba(255,210,76,.08);
+  background:
+    rgba(255,210,76,.08);
 }
 
 
@@ -667,6 +701,7 @@ svg {
   flex: 1;
 
   display: flex;
+
   flex-direction: column;
 
   gap: 5px;
@@ -694,6 +729,7 @@ svg {
   flex: 0 0 38px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 12px;
@@ -715,133 +751,111 @@ svg {
 
 
 /* =====================================================
-   EARN / FEATURE LIST
+   EARN PAGE
+   AVAILABLE TASKS — KEEP VERTICAL
 ===================================================== */
 
 .feature-list {
   display: flex;
+
   flex-direction: column;
 
   gap: 12px;
 }
 
 
-/* =====================================================
-   QUICK EARN - 2 x 2 GRID
-   Only Home Quick Earn cards.
-   #taskList remains a normal vertical list.
-===================================================== */
-
-.feature-list:not(#taskList) {
-  display: grid;
-
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
-
-  gap: 12px;
-
-  margin-bottom: 18px;
-}
-
-
-.feature-list:not(#taskList) .feature-card {
+.feature-card {
   width: 100%;
 
-  min-height: 150px;
+  min-height: 92px;
 
-  padding: 18px;
+  padding: 15px;
 
   display: flex;
 
-  flex-direction: column;
+  align-items: center;
 
-  align-items: flex-start;
-
-  justify-content: flex-start;
-
-  gap: 0;
+  gap: 14px;
 
   text-align: left;
 
-  border-radius: 22px;
+  color: var(--text);
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius: 20px;
 
   background:
-    linear-gradient(
-      145deg,
-      #0e1a29,
-      #0b1624
-    );
+    #0d1927;
 
-  transition:
-    transform .18s ease,
-    border-color .18s ease,
-    background .18s ease;
+  cursor: pointer;
 }
 
 
-.feature-list:not(#taskList) .feature-card:active {
-  transform: scale(.98);
+.feature-card:active {
+  transform: scale(.99);
 }
 
 
-.feature-list:not(#taskList) .feature-card:hover {
-  border-color:
-    rgba(75,143,255,.22);
+.feature-icon {
+  width: 52px;
+  height: 52px;
+
+  flex: 0 0 52px;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 16px;
+
+  color: #62a7ff;
+
+  background:
+    rgba(61,143,255,.10);
 }
 
 
-.feature-list:not(#taskList) .feature-icon {
-  width: 50px;
-  height: 50px;
-
-  flex: 0 0 50px;
-
-  margin-bottom: 17px;
-
-  border-radius: 17px;
-}
-
-
-.feature-list:not(#taskList) .feature-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-
-.feature-list:not(#taskList) .feature-card > div:nth-child(2) {
-  width: 100%;
+.feature-card > div:nth-child(2) {
+  flex: 1;
 
   min-width: 0;
 }
 
 
-.feature-list:not(#taskList) .feature-card strong {
+.feature-card strong {
   display: block;
 
-  font-size: 16px;
+  font-size: 15px;
 
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 
-.feature-list:not(#taskList) .feature-card span {
+.feature-card span {
   display: block;
 
   color: var(--muted);
 
   font-size: 12px;
 
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 
-.feature-list:not(#taskList) .feature-card > b {
-  display: none;
+.feature-card > b {
+  color: #74879f;
+
+  font-size: 25px;
+
+  font-weight: 400;
 }
 
 
 /* =====================================================
-   TASK CARD - IMPORTANT FIX
+   TASK CARD
 ===================================================== */
 
 .task-card {
@@ -999,11 +1013,14 @@ svg {
 .secondary-action {
   margin-top: 10px;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   color: #dbe5f4;
 
-  background: #101d2c;
+  background:
+    #101d2c;
 }
 
 
@@ -1016,7 +1033,9 @@ svg {
 
   padding: 20px;
 
-  border: 1px solid rgba(74,145,255,.14);
+  border:
+    1px solid
+    rgba(74,145,255,.14);
 
   border-radius: 26px;
 
@@ -1029,7 +1048,8 @@ svg {
     );
 
   box-shadow:
-    0 18px 45px rgba(0,0,0,.20);
+    0 18px 45px
+    rgba(0,0,0,.20);
 
   overflow: hidden;
 }
@@ -1083,6 +1103,7 @@ svg {
   flex: 0 0 58px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 18px;
@@ -1341,6 +1362,8 @@ svg {
 
   justify-content: center;
 
+  gap: 4px;
+
   min-height: 17px;
 
   margin-top: 7px;
@@ -1495,22 +1518,14 @@ svg {
 
 
 /* =====================================================
-   CHECK-IN STATUS ICON
+   CHECK-IN STATUS ICONS
 ===================================================== */
-
-.checkin-day-status {
-  display: inline-flex;
-
-  align-items: center;
-  justify-content: center;
-
-  gap: 4px;
-}
-
 
 .checkin-status-icon {
   width: 16px;
   height: 16px;
+
+  flex: 0 0 16px;
 
   fill: none;
 
@@ -1519,7 +1534,6 @@ svg {
   stroke-width: 2.2;
 
   stroke-linecap: round;
-
   stroke-linejoin: round;
 }
 
@@ -1586,6 +1600,7 @@ svg {
   flex: 0 0 40px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 12px;
@@ -1683,7 +1698,7 @@ svg {
 
 
 /* =====================================================
-   CHECK-IN CLAIM BUTTON
+   CHECK-IN CLAIM
 ===================================================== */
 
 .daily-checkin-action {
@@ -1758,7 +1773,9 @@ svg {
 .referral-card {
   padding: 25px;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   border-radius: 24px;
 
@@ -1777,9 +1794,13 @@ svg {
   width: 64px;
   height: 64px;
 
-  margin: 0 auto 15px;
+  margin:
+    0
+    auto
+    15px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 20px;
@@ -1806,7 +1827,10 @@ svg {
 .referral-card p {
   max-width: 430px;
 
-  margin: 0 auto 20px;
+  margin:
+    0
+    auto
+    20px;
 
   color: var(--muted);
 
@@ -1825,11 +1849,14 @@ svg {
 
   overflow: hidden;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   border-radius: 13px;
 
-  background: #08111d;
+  background:
+    #08111d;
 
   color: #8db7ef;
 
@@ -1873,7 +1900,9 @@ svg {
 
   padding: 16px;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   border-radius: 19px;
 
@@ -1889,6 +1918,7 @@ svg {
   flex: 0 0 42px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 13px;
@@ -1938,11 +1968,14 @@ svg {
   min-height: 180px;
 
   display: grid;
+
   place-items: center;
 
   padding: 24px;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   border-radius: 21px;
 
@@ -1953,6 +1986,7 @@ svg {
 
 .empty {
   display: flex;
+
   flex-direction: column;
 
   align-items: center;
@@ -1970,13 +2004,15 @@ svg {
   height: 58px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 18px;
 
   color: #91a7c4;
 
-  background: rgba(130,160,200,.07);
+  background:
+    rgba(130,160,200,.07);
 
   margin-bottom: 5px;
 }
@@ -2011,7 +2047,9 @@ svg {
 
   border-radius: 24px;
 
-  border: 1px solid rgba(62,141,255,.16);
+  border:
+    1px solid
+    rgba(62,141,255,.16);
 
   background:
     linear-gradient(
@@ -2051,11 +2089,14 @@ svg {
 
   text-align: center;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   border-radius: 24px;
 
-  background: #0d1927;
+  background:
+    #0d1927;
 }
 
 
@@ -2063,9 +2104,13 @@ svg {
   width: 86px;
   height: 86px;
 
-  margin: 0 auto 13px;
+  margin:
+    0
+    auto
+    13px;
 
   display: grid;
+
   place-items: center;
 
   overflow: hidden;
@@ -2112,11 +2157,14 @@ svg {
 .profile-menu {
   overflow: hidden;
 
-  border: 1px solid var(--border);
+  border:
+    1px solid
+    var(--border);
 
   border-radius: 22px;
 
-  background: #0d1927;
+  background:
+    #0d1927;
 }
 
 
@@ -2125,9 +2173,12 @@ svg {
 
   min-height: 74px;
 
-  padding: 12px 15px;
+  padding:
+    12px
+    15px;
 
   display: flex;
+
   align-items: center;
 
   gap: 13px;
@@ -2140,7 +2191,9 @@ svg {
 
   border: 0;
 
-  border-bottom: 1px solid var(--border);
+  border-bottom:
+    1px solid
+    var(--border);
 
   cursor: pointer;
 }
@@ -2158,13 +2211,15 @@ svg {
   flex: 0 0 42px;
 
   display: grid;
+
   place-items: center;
 
   border-radius: 13px;
 
   color: #55a3ff;
 
-  background: rgba(55,143,255,.08);
+  background:
+    rgba(55,143,255,.08);
 }
 
 
@@ -2199,6 +2254,61 @@ svg {
   font-size: 23px;
 
   font-weight: 400;
+}
+
+
+/* =====================================================
+   PRIMARY / SECONDARY BUTTON
+===================================================== */
+
+.primary-action,
+.secondary-action {
+  width: 100%;
+
+  min-height: 48px;
+
+  border-radius: 14px;
+
+  cursor: pointer;
+
+  font-size: 14px;
+
+  font-weight: 700;
+}
+
+
+.primary-action {
+  border: 0;
+
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #338cff,
+      #6258ef
+    );
+}
+
+
+.primary-action:disabled {
+  cursor: default;
+
+  opacity: .92;
+}
+
+
+.secondary-action {
+  margin-top: 10px;
+
+  border:
+    1px solid
+    var(--border);
+
+  color: #dbe5f4;
+
+  background:
+    #101d2c;
 }
 
 
@@ -2249,7 +2359,8 @@ svg {
     blur(18px);
 
   box-shadow:
-    0 16px 40px rgba(0,0,0,.35);
+    0 16px 40px
+    rgba(0,0,0,.35);
 }
 
 
@@ -2258,12 +2369,16 @@ svg {
 
   min-height: 60px;
 
-  padding: 7px 4px;
+  padding:
+    7px
+    4px;
 
   display: flex;
+
   flex-direction: column;
 
   align-items: center;
+
   justify-content: center;
 
   gap: 5px;
@@ -2326,6 +2441,7 @@ svg {
   position: fixed;
 
   left: 50%;
+
   bottom: 91px;
 
   z-index: 100;
@@ -2356,7 +2472,9 @@ svg {
     rgba(255,255,255,.08);
 
   box-shadow:
-    0 10px 30px
+    0
+    10px
+    30px
     rgba(0,0,0,.3);
 
   font-size: 13px;
@@ -2376,7 +2494,7 @@ svg {
 
 
 /* =====================================================
-   RESPONSIVE
+   RESPONSIVE — MOBILE
 ===================================================== */
 
 @media (max-width: 600px) {
@@ -2427,6 +2545,10 @@ svg {
 }
 
 
+/* =====================================================
+   SMALL PHONE
+===================================================== */
+
 @media (max-width: 480px) {
 
   .app {
@@ -2447,57 +2569,16 @@ svg {
   }
 
 
-  /*
-    QUICK EARN
-    Keep 2 x 2 layout on phone.
-  */
+  /* -----------------------------------------------
+     HOME QUICK EARN
+     Still 2 × 2
+  ------------------------------------------------ */
 
-  .feature-list:not(#taskList) {
+  .quick-grid {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
 
     gap: 10px;
-  }
-
-
-  .feature-list:not(#taskList) .feature-card {
-    min-height: 142px;
-
-    padding: 15px;
-
-    border-radius: 20px;
-  }
-
-
-  .feature-list:not(#taskList) .feature-icon {
-    width: 46px;
-    height: 46px;
-
-    flex-basis: 46px;
-
-    margin-bottom: 14px;
-
-    border-radius: 16px;
-  }
-
-
-  .feature-list:not(#taskList) .feature-icon svg {
-    width: 23px;
-    height: 23px;
-  }
-
-
-  .feature-list:not(#taskList) .feature-card strong {
-    font-size: 14px;
-
-    margin-bottom: 5px;
-  }
-
-
-  .feature-list:not(#taskList) .feature-card span {
-    font-size: 11px;
-
-    line-height: 1.4;
   }
 
 
@@ -2521,6 +2602,13 @@ svg {
   }
 
 
+  .quick-card small {
+    font-size: 11px;
+
+    line-height: 1.4;
+  }
+
+
   .stat-card {
     padding: 13px;
   }
@@ -2538,6 +2626,10 @@ svg {
     font-size: 14px;
   }
 
+
+  /* -----------------------------------------------
+     DAILY CHECK-IN
+  ------------------------------------------------ */
 
   .daily-checkin-card {
     padding: 16px;
@@ -2579,7 +2671,9 @@ svg {
   }
 
 
-  /* Task cards remain one per row */
+  /* -----------------------------------------------
+     TASK CARD
+  ------------------------------------------------ */
 
   .task-card {
     gap: 10px;
@@ -2632,14 +2726,18 @@ svg {
 }
 
 
+/* =====================================================
+   VERY SMALL PHONE
+===================================================== */
+
 @media (max-width: 380px) {
 
   /*
-    Quick Earn stays 2 x 2
-    even on small phones.
+    IMPORTANT:
+    Quick Earn stays 2 × 2.
   */
 
-  .feature-list:not(#taskList) {
+  .quick-grid {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
 
@@ -2647,63 +2745,36 @@ svg {
   }
 
 
-  .feature-list:not(#taskList) .feature-card {
-    min-height: 136px;
+  .quick-card {
+    min-height: 135px;
 
-    padding: 13px;
-
-    border-radius: 18px;
+    padding: 12px;
   }
 
 
-  .feature-list:not(#taskList) .feature-icon {
-    width: 43px;
-    height: 43px;
+  .quick-icon {
+    width: 42px;
+    height: 42px;
 
-    flex-basis: 43px;
+    margin-bottom: 11px;
 
-    margin-bottom: 12px;
+    border-radius: 14px;
   }
 
 
-  .feature-list:not(#taskList) .feature-icon svg {
+  .quick-icon svg {
     width: 21px;
     height: 21px;
   }
 
 
-  .feature-list:not(#taskList) .feature-card strong {
+  .quick-card strong {
     font-size: 13px;
   }
 
 
-  .feature-list:not(#taskList) .feature-card span {
-    font-size: 10px;
-  }
-
-
-  .quick-grid {
-    grid-template-columns: 1fr;
-  }
-
-
-  .quick-card {
-    min-height: auto;
-
-    flex-direction: row;
-    align-items: center;
-
-    gap: 12px;
-  }
-
-
-  .quick-icon {
-    margin: 0;
-  }
-
-
   .quick-card small {
-    margin-top: 3px;
+    font-size: 10px;
   }
 
 
@@ -2777,37 +2848,57 @@ svg {
 }
 
 
+/* =====================================================
+   EXTRA SMALL PHONE
+===================================================== */
+
 @media (max-width: 340px) {
 
-  .feature-list:not(#taskList) {
+  /*
+    Quick Earn still remains 2 × 2.
+    It is intentionally NOT changed to 1 column.
+  */
+
+  .quick-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
     gap: 7px;
   }
 
 
-  .feature-list:not(#taskList) .feature-card {
-    min-height: 130px;
+  .quick-card {
+    min-height: 128px;
 
-    padding: 11px;
+    padding: 10px;
   }
 
 
-  .feature-list:not(#taskList) .feature-icon {
+  .quick-icon {
     width: 40px;
     height: 40px;
 
-    flex-basis: 40px;
-
-    margin-bottom: 10px;
+    margin-bottom: 9px;
   }
 
 
-  .feature-list:not(#taskList) .feature-card strong {
+  .quick-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+
+  .quick-card strong {
     font-size: 12px;
+
+    margin-bottom: 4px;
   }
 
 
-  .feature-list:not(#taskList) .feature-card span {
+  .quick-card small {
     font-size: 9px;
+
+    line-height: 1.35;
   }
 
 
