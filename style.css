@@ -2652,3 +2652,47 @@ svg {
   }
 
 }
+
+
+/* ======================================================
+   DAILY CHECK-IN STATUS ICONS
+   ====================================================== */
+
+.checkin-day-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.checkin-status-icon {
+  width: 16px;
+  height: 16px;
+
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Completed ✓ */
+.checkin-status-completed {
+  color: #55ddb1;
+}
+
+/* Locked 🔒 */
+.checkin-status-locked {
+  color: #64748b;
+}
+
+.checkin-status-locked .checkin-status-icon {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.9;
+}
+
+/* Live */
+.checkin-status-live {
+  color: #55a8ff;
+}
