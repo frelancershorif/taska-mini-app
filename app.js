@@ -1,8 +1,7 @@
 // ======================================================
 // TASKA - FRONTEND APP
 // Telegram Mini App + Taska Backend
-// Daily Check-in redesign
-// CSS is intentionally NOT included here.
+// Daily Check-in + Tasks
 // ======================================================
 
 
@@ -42,9 +41,6 @@ const telegramUser =
 const taskStartTimes =
   new Map();
 
-
-// Task visit verification time.
-// This is only 3 seconds.
 const TASK_MINIMUM_WAIT =
   3000;
 
@@ -58,6 +54,18 @@ let checkinClaimedDate =
 
 let checkinTimer =
   null;
+
+let checkinStatus = {
+  today_claimed: false,
+  today_reward: 0,
+  today_streak: 0,
+  next_streak: 1,
+  next_reward: 0.10,
+  cycle_days: 7,
+  reward_per_day: 0.10,
+  next_checkin_at: null,
+  history: []
+};
 
 
 // ======================================================
@@ -158,11 +166,27 @@ async function taskaAPI(
     !data.ok
   ) {
 
-    throw new Error(
-      data.error ||
-      data.message ||
-      "Taska server error"
-    );
+    const apiError =
+      data?.error ||
+      data?.message ||
+      "Taska server error";
+
+
+    const error =
+      new Error(
+        apiError
+      );
+
+
+    error.status =
+      response.status;
+
+
+    error.data =
+      data;
+
+
+    throw error;
 
   }
 
@@ -580,6 +604,56 @@ function icon(
 
 
 // ======================================================
+// INLINE CLOCK ICON
+// IMPORTANT:
+// This does NOT depend on SVG sprite.
+// So clock icon will always be visible.
+// ======================================================
+
+function clockIcon() {
+
+  return `
+
+    <svg
+      class="checkin-clock-svg"
+      viewBox="0 0 24 24"
+      width="30"
+      height="30"
+      fill="none"
+      aria-hidden="true"
+    >
+
+      <circle
+        cx="12"
+        cy="12"
+        r="8.5"
+        stroke="currentColor"
+        stroke-width="1.8"
+      />
+
+      <path
+        d="M12 7.5V12L15.2 14"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+
+      <path
+        d="M9 3.8L7.5 2.8M15 3.8L16.5 2.8"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+
+    </svg>
+
+  `;
+
+}
+
+
+// ======================================================
 // HAPTIC
 // ======================================================
 
@@ -894,7 +968,6 @@ function pageHeader(
 
 
 // ======================================================
-// DAILY CHECK-IN
 // DATE HELPERS
 // ======================================================
 
@@ -1000,6 +1073,71 @@ function formatMonthDay(
 
 
 // ======================================================
+// CHECK-IN REWARD BY STREAK
+// ======================================================
+
+function rewardForStreak(
+  streak
+) {
+
+  const safeStreak =
+    Math.min(
+      7,
+      Math.max(
+        1,
+        Number(streak) || 1
+      )
+    );
+
+
+  return Number(
+    (
+      0.10 *
+      safeStreak
+    ).toFixed(2)
+  );
+
+}
+
+
+// ======================================================
+// NEXT STREAK
+// ======================================================
+
+function nextStreakFrom(
+  streak
+) {
+
+  const current =
+    Number(
+      streak || 0
+    );
+
+
+  if (
+    current <= 0
+  ) {
+
+    return 1;
+
+  }
+
+
+  if (
+    current >= 7
+  ) {
+
+    return 1;
+
+  }
+
+
+  return current + 1;
+
+}
+
+
+// ======================================================
 // NEXT MIDNIGHT
 // ======================================================
 
@@ -1080,6 +1218,130 @@ function getCountdownText() {
 
 
 // ======================================================
+// LOAD CHECK-IN STATUS FROM BACKEND
+// ======================================================
+
+async function loadCheckinStatus() {
+
+  try {
+
+    console.log(
+      "Taska: Loading check-in status..."
+    );
+
+
+    const data =
+      await taskaAPI(
+        "/api/checkin/status"
+      );
+
+
+    console.log(
+      "Taska: Check-in status:",
+      data
+    );
+
+
+    checkinStatus = {
+
+      today_claimed:
+        Boolean(
+          data.today_claimed
+        ),
+
+      today_reward:
+        Number(
+          data.today_reward || 0
+        ),
+
+      today_streak:
+        Number(
+          data.today_streak || 0
+        ),
+
+      next_streak:
+        Number(
+          data.next_streak || 1
+        ),
+
+      next_reward:
+        Number(
+          data.next_reward || 0.10
+        ),
+
+      cycle_days:
+        Number(
+          data.cycle_days || 7
+        ),
+
+      reward_per_day:
+        Number(
+          data.reward_per_day || 0.10
+        ),
+
+      next_checkin_at:
+        data.next_checkin_at ||
+        null,
+
+      history:
+        Array.isArray(
+          data.history
+        )
+          ? data.history
+          : []
+
+    };
+
+
+    if (
+      checkinStatus.today_claimed
+    ) {
+
+      checkinClaimedDate =
+        dateKey(
+          startOfToday()
+        );
+
+    } else {
+
+      checkinClaimedDate =
+        null;
+
+    }
+
+
+    renderCheckinCalendar();
+
+
+    return checkinStatus;
+
+
+  } catch (error) {
+
+    console.error(
+      "Taska: Check-in status error:",
+      error
+    );
+
+
+    /*
+     * Do not break the page if status endpoint
+     * is temporarily unavailable.
+     *
+     * Use safe default values.
+     */
+
+    renderCheckinCalendar();
+
+
+    return null;
+
+  }
+
+}
+
+
+// ======================================================
 // RENDER 7 DAY CALENDAR
 // ======================================================
 
@@ -1109,8 +1371,52 @@ function renderCheckinCalendar() {
 
 
   const claimed =
+    checkinStatus.today_claimed ||
     checkinClaimedDate ===
-    todayKey;
+      todayKey;
+
+
+  /*
+   * IMPORTANT:
+   *
+   * If today's check-in is already claimed:
+   *
+   *   today = today's streak
+   *
+   * Example:
+   *   Day 3 claimed
+   *   Today = ৳0.30
+   *   Tomorrow = ৳0.40
+   *   ...
+   *   Day 7 = ৳0.70
+   *   Next cycle = ৳0.10
+   *
+   * If today's check-in is NOT claimed:
+   *
+   *   today = next_streak
+   */
+
+  let startingStreak =
+    claimed
+      ? Number(
+          checkinStatus.today_streak ||
+          1
+        )
+      : Number(
+          checkinStatus.next_streak ||
+          1
+        );
+
+
+  if (
+    startingStreak < 1 ||
+    startingStreak > 7
+  ) {
+
+    startingStreak =
+      1;
+
+  }
 
 
   const days =
@@ -1150,6 +1456,37 @@ function renderCheckinCalendar() {
         : isToday
           ? "today"
           : "locked";
+
+
+    /*
+     * Reward increases day by day:
+     *
+     * 0.10
+     * 0.20
+     * 0.30
+     * ...
+     * 0.70
+     *
+     * Then starts from 0.10.
+     */
+
+    let streakForDay =
+      startingStreak + i;
+
+
+    while (
+      streakForDay > 7
+    ) {
+
+      streakForDay -= 7;
+
+    }
+
+
+    const dayReward =
+      rewardForStreak(
+        streakForDay
+      );
 
 
     days.push(`
@@ -1200,7 +1537,7 @@ function renderCheckinCalendar() {
         >
           ${
             isCompleted
-              ? "Completed"
+              ? "✓ Completed"
               : isToday
                 ? "LIVE"
                 : "Locked"
@@ -1211,7 +1548,7 @@ function renderCheckinCalendar() {
         <span
           class="checkin-day-reward"
         >
-          +৳0.10
+          +${formatMoney(dayReward)}
         </span>
 
       </div>
@@ -1224,6 +1561,84 @@ function renderCheckinCalendar() {
   grid.innerHTML =
     days.join("");
 
+
+  // ====================================================
+  // PROGRESS
+  // ====================================================
+
+  const progressFill =
+    document.querySelector(
+      ".checkin-progress-fill"
+    );
+
+
+  const progressValue =
+    claimed
+      ? Number(
+          checkinStatus.today_streak ||
+          1
+        )
+      : Math.max(
+          0,
+          Number(
+            checkinStatus.next_streak ||
+            1
+          ) - 1
+        );
+
+
+  if (progressFill) {
+
+    const percentage =
+      Math.min(
+        100,
+        Math.max(
+          0,
+          (
+            progressValue /
+            7
+          ) * 100
+        )
+      );
+
+
+    progressFill.style.width =
+      `${percentage}%`;
+
+  }
+
+
+  // ====================================================
+  // PROGRESS LABEL
+  // ====================================================
+
+  const progressLabel =
+    document.querySelector(
+      ".checkin-progress-label strong"
+    );
+
+
+  if (progressLabel) {
+
+    progressLabel.textContent =
+      claimed
+
+        ? `${checkinStatus.today_streak} / 7 days`
+
+        : `${Math.max(
+            0,
+            Number(
+              checkinStatus.next_streak ||
+              1
+            ) - 1
+          )} / 7 days`;
+
+  }
+
+
+  // ====================================================
+  // CLAIM BUTTON
+  // ====================================================
 
   const action =
     document.getElementById(
@@ -1243,22 +1658,46 @@ function renderCheckinCalendar() {
     );
 
 
+  const nextReward =
+    claimed
+
+      ? rewardForStreak(
+          nextStreakFrom(
+            checkinStatus.today_streak
+          )
+        )
+
+      : Number(
+          checkinStatus.next_reward ||
+          rewardForStreak(
+            checkinStatus.next_streak
+          )
+        );
+
+
   if (action) {
 
     action.disabled =
       claimed;
 
 
-    action.textContent =
-      claimed
-        ? "Completed"
-        : "Claim ৳0.10";
-
-
     action.dataset.claimed =
       claimed
         ? "true"
         : "false";
+
+
+    action.dataset.claiming =
+      "false";
+
+
+    action.textContent =
+      claimed
+        ? "✓ Completed"
+        : `Claim ${formatMoney(
+            checkinStatus.next_reward ||
+            0.10
+          )}`;
 
   }
 
@@ -1268,9 +1707,14 @@ function renderCheckinCalendar() {
     status.textContent =
       claimed
 
-        ? "Today's reward has already been collected."
+        ? `Today's reward ${formatMoney(
+            checkinStatus.today_reward
+          )} has been collected successfully.`
 
-        : "Today's reward is LIVE. Claim it now.";
+        : `Today's reward is LIVE. Claim ${formatMoney(
+            checkinStatus.next_reward ||
+            0.10
+          )} now.`;
 
   }
 
@@ -1281,6 +1725,22 @@ function renderCheckinCalendar() {
       getCountdownText();
 
   }
+
+
+  // ====================================================
+  // NEXT REWARD TEXT
+  // ====================================================
+
+  const nextRewardElement =
+    document.querySelector(
+      ".checkin-live-content"
+    );
+
+
+  /*
+   * We intentionally do not inject extra text here.
+   * The existing countdown UI remains clean.
+   */
 
 }
 
@@ -1301,7 +1761,7 @@ function startCheckinCountdown() {
 
   checkinTimer =
     setInterval(
-      () => {
+      async () => {
 
         const countdown =
           document.getElementById(
@@ -1313,6 +1773,25 @@ function startCheckinCountdown() {
 
           countdown.textContent =
             getCountdownText();
+
+        }
+
+
+        /*
+         * When midnight is reached,
+         * reload server status.
+         */
+
+        const remaining =
+          getNextMidnight() -
+          Date.now();
+
+
+        if (
+          remaining <= 1000
+        ) {
+
+          await loadCheckinStatus();
 
         }
 
@@ -1393,7 +1872,7 @@ function dailyCheckinPage() {
             <strong>
               ৳0.10
             </strong>
-            every day.
+            or more every day.
           </p>
 
         </div>
@@ -1416,7 +1895,7 @@ function dailyCheckinPage() {
           </span>
 
           <strong>
-            7 days
+            0 / 7 days
           </strong>
 
         </div>
@@ -1452,7 +1931,9 @@ function dailyCheckinPage() {
         <div
           class="checkin-live-icon"
         >
-          ${icon("clock")}
+
+          ${clockIcon()}
+
         </div>
 
 
@@ -1489,8 +1970,7 @@ function dailyCheckinPage() {
         class="daily-checkin-status"
         id="dailyCheckinStatus"
       >
-        Today's reward is LIVE.
-        Claim it now.
+        Today's reward is LIVE. Claim it now.
       </div>
 
 
@@ -1503,6 +1983,7 @@ function dailyCheckinPage() {
           daily-checkin-action
         "
         id="dailyCheckinAction"
+        data-claimed="false"
       >
         Claim ৳0.10
       </button>
@@ -1570,6 +2051,10 @@ async function claimDailyCheckin(
     "true"
   ) {
 
+    button.textContent =
+      "✓ Completed";
+
+
     showToast(
       "Today's reward is already completed"
     );
@@ -1616,6 +2101,10 @@ async function claimDailyCheckin(
     );
 
 
+    // --------------------------------------------------
+    // UPDATE BALANCE
+    // --------------------------------------------------
+
     if (
       data.balance !==
       undefined &&
@@ -1630,19 +2119,80 @@ async function claimDailyCheckin(
     }
 
 
+    // --------------------------------------------------
+    // UPDATE CHECK-IN STATE FROM SERVER
+    // --------------------------------------------------
+
     checkinClaimedDate =
       dateKey(
         startOfToday()
       );
 
 
+    checkinStatus.today_claimed =
+      true;
+
+
+    checkinStatus.today_reward =
+      Number(
+        data.reward ??
+        0.10
+      );
+
+
+    checkinStatus.today_streak =
+      Number(
+        data.streak ??
+        1
+      );
+
+
+    checkinStatus.next_streak =
+      Number(
+        data.next_streak ??
+        nextStreakFrom(
+          data.streak
+        )
+      );
+
+
+    checkinStatus.next_reward =
+      Number(
+        data.next_reward ??
+        rewardForStreak(
+          checkinStatus.next_streak
+        )
+      );
+
+
+    checkinStatus.next_checkin_at =
+      data.next_checkin_at ||
+      null;
+
+
+    // --------------------------------------------------
+    // BUTTON = COMPLETED
+    // --------------------------------------------------
+
+    button.dataset.claiming =
+      "false";
+
+
     button.dataset.claimed =
       "true";
 
 
-    button.textContent =
-      "Completed";
+    button.disabled =
+      true;
 
+
+    button.textContent =
+      "✓ Completed";
+
+
+    // --------------------------------------------------
+    // UPDATE STATUS TEXT
+    // --------------------------------------------------
 
     const status =
       document.getElementById(
@@ -1653,13 +2203,23 @@ async function claimDailyCheckin(
     if (status) {
 
       status.textContent =
-        "Today's reward has been collected successfully.";
+        `Today's reward ${formatMoney(
+          checkinStatus.today_reward
+        )} has been collected successfully.`;
 
     }
 
 
+    // --------------------------------------------------
+    // UPDATE CALENDAR
+    // --------------------------------------------------
+
     renderCheckinCalendar();
 
+
+    // --------------------------------------------------
+    // SUCCESS TOAST
+    // --------------------------------------------------
 
     showToast(
       `Daily reward added: ${formatMoney(
@@ -1681,6 +2241,56 @@ async function claimDailyCheckin(
     );
 
 
+    /*
+     * If backend says already claimed,
+     * update UI to Completed instead of
+     * showing Claim again.
+     */
+
+    if (
+      error.status === 409 ||
+      error?.data?.today_claimed === true
+    ) {
+
+      checkinClaimedDate =
+        dateKey(
+          startOfToday()
+        );
+
+
+      checkinStatus.today_claimed =
+        true;
+
+
+      button.dataset.claimed =
+        "true";
+
+
+      button.dataset.claiming =
+        "false";
+
+
+      button.disabled =
+        true;
+
+
+      button.textContent =
+        "✓ Completed";
+
+
+      renderCheckinCalendar();
+
+
+      showToast(
+        "Today's reward is already completed"
+      );
+
+
+      return;
+
+    }
+
+
     button.dataset.claiming =
       "false";
 
@@ -1690,7 +2300,10 @@ async function claimDailyCheckin(
 
 
     button.textContent =
-      "Claim ৳0.10";
+      `Claim ${formatMoney(
+        checkinStatus.next_reward ||
+        0.10
+      )}`;
 
 
     showToast(
@@ -2558,10 +3171,6 @@ function loadPage(
 
 function setupHomeEvents() {
 
-  // ----------------------------------------------------
-  // QUICK CARDS
-  // ----------------------------------------------------
-
   document
     .querySelectorAll(
       ".quick-card"
@@ -2627,10 +3236,6 @@ function setupHomeEvents() {
     );
 
 
-  // ----------------------------------------------------
-  // FEATURE BANNERS
-  // ----------------------------------------------------
-
   document
     .querySelectorAll(
       ".feature-banner"
@@ -2652,10 +3257,6 @@ function setupHomeEvents() {
       }
     );
 
-
-  // ----------------------------------------------------
-  // WITHDRAW
-  // ----------------------------------------------------
 
   const withdraw =
     document.getElementById(
@@ -2679,10 +3280,6 @@ function setupHomeEvents() {
   }
 
 
-  // ----------------------------------------------------
-  // NOTIFICATION
-  // ----------------------------------------------------
-
   const notification =
     document.getElementById(
       "notificationBtn"
@@ -2704,10 +3301,6 @@ function setupHomeEvents() {
 
   }
 
-
-  // ----------------------------------------------------
-  // STATS
-  // ----------------------------------------------------
 
   const stats =
     document.getElementById(
@@ -2731,10 +3324,6 @@ function setupHomeEvents() {
   }
 
 
-  // ----------------------------------------------------
-  // TRANSACTIONS
-  // ----------------------------------------------------
-
   const transactions =
     document.getElementById(
       "viewTransactions"
@@ -2756,10 +3345,6 @@ function setupHomeEvents() {
 
   }
 
-
-  // ----------------------------------------------------
-  // BALANCE EYE
-  // ----------------------------------------------------
 
   const eye =
     document.querySelector(
@@ -2833,6 +3418,17 @@ function setupDailyCheckinEvents() {
     );
 
   }
+
+
+  /*
+   * First render the current state,
+   * then ask backend for the real state.
+   */
+
+  renderCheckinCalendar();
+
+
+  loadCheckinStatus();
 
 
   startCheckinCountdown();
@@ -3206,10 +3802,6 @@ async function claimTask(
   }
 
 
-  // ====================================================
-  // PREVENT DOUBLE REQUEST
-  // ====================================================
-
   if (
     button?.dataset.claiming ===
     "true"
@@ -3219,10 +3811,6 @@ async function claimTask(
 
   }
 
-
-  // ====================================================
-  // ONE CLICK CLAIM FLOW
-  // ====================================================
 
   if (button) {
 
@@ -3272,17 +3860,9 @@ async function claimTask(
     );
 
 
-    // --------------------------------------------------
-    // Mark complete
-    // --------------------------------------------------
-
     task.completed =
       true;
 
-
-    // --------------------------------------------------
-    // Update server balance
-    // --------------------------------------------------
 
     if (
       data.balance !==
@@ -3298,18 +3878,10 @@ async function claimTask(
     }
 
 
-    // --------------------------------------------------
-    // Clear timer
-    // --------------------------------------------------
-
     taskStartTimes.delete(
       numericTaskId
     );
 
-
-    // --------------------------------------------------
-    // Success
-    // --------------------------------------------------
 
     if (button) {
 
@@ -3388,10 +3960,6 @@ async function claimTask(
 
 function setupEarnEvents() {
 
-  // ----------------------------------------------------
-  // DAILY CHECK-IN
-  // ----------------------------------------------------
-
   const checkin =
     document.querySelector(
       '[data-action="checkin"]'
@@ -3413,10 +3981,6 @@ function setupEarnEvents() {
 
   }
 
-
-  // ----------------------------------------------------
-  // WATCH ADS
-  // ----------------------------------------------------
 
   const ads =
     document.querySelector(
@@ -3445,12 +4009,12 @@ function setupEarnEvents() {
   }
 
 
-  // ----------------------------------------------------
+  // ====================================================
   // TASK CLAIM
   //
   // Event delegation is important because tasks
-  // are loaded dynamically from backend.
-  // ----------------------------------------------------
+  // are dynamically loaded from backend.
+  // ====================================================
 
   const taskList =
     document.getElementById(
@@ -3506,10 +4070,6 @@ function setupEarnEvents() {
   }
 
 
-  // ----------------------------------------------------
-  // LOAD TASKS
-  // ----------------------------------------------------
-
   loadEarnTasks();
 
 }
@@ -3535,10 +4095,6 @@ function setupReferralEvents() {
       referralCode
     )}`;
 
-
-  // ----------------------------------------------------
-  // COPY
-  // ----------------------------------------------------
 
   const copyButton =
     document.getElementById(
@@ -3599,10 +4155,6 @@ function setupReferralEvents() {
 
   }
 
-
-  // ----------------------------------------------------
-  // SHARE
-  // ----------------------------------------------------
 
   const shareButton =
     document.getElementById(
@@ -3764,10 +4316,6 @@ function setupNavigation() {
           "click",
           () => {
 
-            // ------------------------------------------
-            // ACTIVE BUTTON
-            // ------------------------------------------
-
             document
               .querySelectorAll(
                 ".nav-btn"
@@ -3788,10 +4336,6 @@ function setupNavigation() {
             );
 
 
-            // ------------------------------------------
-            // PAGE
-            // ------------------------------------------
-
             const page =
               button.dataset.page;
 
@@ -3807,10 +4351,6 @@ function setupNavigation() {
               page
             );
 
-
-            // ------------------------------------------
-            // SCROLL TOP
-            // ------------------------------------------
 
             window.scrollTo({
               top: 0,
