@@ -1532,17 +1532,65 @@ function renderCheckinCalendar() {
         </span>
 
 
-        <span
-          class="checkin-day-status"
+      <span
+  class="
+    checkin-day-status
+    ${
+      isCompleted
+        ? "checkin-status-completed"
+        : isToday
+          ? "checkin-status-live"
+          : "checkin-status-locked"
+    }
+  "
+  aria-label="${
+    isCompleted
+      ? "Completed"
+      : isToday
+        ? "Live"
+        : "Locked"
+  }"
+>
+  ${
+    isCompleted
+
+      ? `
+        <svg
+          class="checkin-status-icon"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
         >
-          ${
-            isCompleted
-              ? "✓ Completed"
-              : isToday
-                ? "LIVE"
-                : "Locked"
-          }
-        </span>
+          <path
+            d="M5 12.5l4.2 4.2L19 7"
+          ></path>
+        </svg>
+      `
+
+      : isToday
+
+        ? "LIVE"
+
+        : `
+          <svg
+            class="checkin-status-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <rect
+              x="5"
+              y="10"
+              width="14"
+              height="10"
+              rx="2.5"
+            ></rect>
+
+            <path
+              d="M8 10V7a4 4 0 0 1 8 0v3"
+            ></path>
+          </svg>
+        `
+  }
+</span>
 
 
         <span
