@@ -1,12 +1,11 @@
 // ======================================================
 // TASKA - FRONTEND APP
 // Telegram Mini App + Taska Backend
-// Daily Check-in + Tasks
 // ======================================================
 
 
 // ======================================================
-// TELEGRAM INITIALIZATION
+// TELEGRAM
 // ======================================================
 
 const tg =
@@ -14,7 +13,7 @@ const tg =
 
 
 // ======================================================
-// TASKA BACKEND
+// BACKEND
 // ======================================================
 
 const API_URL =
@@ -28,6 +27,15 @@ const API_URL =
 let earnTasks = [];
 
 let taskaUser = null;
+
+let homeStats = {
+  total_earned: 0,
+  referrals: 0,
+  tasks_completed: 0,
+  total_withdrawn: 0,
+  today_earned: 0
+};
+
 
 const telegramUser =
   tg?.initDataUnsafe?.user ||
@@ -46,14 +54,12 @@ const TASK_MINIMUM_WAIT =
 
 
 // ======================================================
-// DAILY CHECK-IN STATE
+// CHECK-IN STATE
 // ======================================================
 
-let checkinClaimedDate =
-  null;
+let checkinClaimedDate = null;
 
-let checkinTimer =
-  null;
+let checkinTimer = null;
 
 let checkinStatus = {
   today_claimed: false,
@@ -80,7 +86,7 @@ function authInitData() {
 
 
 // ======================================================
-// TASKA API
+// API
 // ======================================================
 
 async function taskaAPI(
@@ -147,12 +153,7 @@ async function taskaAPI(
     data =
       await response.json();
 
-  } catch (error) {
-
-    console.error(
-      "Taska API invalid JSON:",
-      error
-    );
+  } catch {
 
     throw new Error(
       "Invalid server response"
@@ -166,15 +167,11 @@ async function taskaAPI(
     !data.ok
   ) {
 
-    const apiError =
-      data?.error ||
-      data?.message ||
-      "Taska server error";
-
-
     const error =
       new Error(
-        apiError
+        data?.error ||
+        data?.message ||
+        "Taska server error"
       );
 
 
@@ -211,9 +208,7 @@ function formatMoney(
 
 
   if (
-    !Number.isFinite(
-      number
-    )
+    !Number.isFinite(number)
   ) {
 
     return "৳0.00";
@@ -230,7 +225,7 @@ function formatMoney(
 
 
 // ======================================================
-// REFRESH BALANCE
+// BALANCE
 // ======================================================
 
 function refreshTaskaBalance(
@@ -238,22 +233,16 @@ function refreshTaskaBalance(
 ) {
 
   if (!taskaUser) {
-
     return;
-
   }
 
 
   const number =
-    Number(
-      balance ?? 0
-    );
+    Number(balance ?? 0);
 
 
   if (
-    !Number.isFinite(
-      number
-    )
+    !Number.isFinite(number)
   ) {
 
     return;
@@ -265,22 +254,18 @@ function refreshTaskaBalance(
     number;
 
 
-  const balanceElements =
-    document.querySelectorAll(
+  document
+    .querySelectorAll(
       "#balance, .balance-value, .wallet-balance, [data-balance]"
+    )
+    .forEach(
+      element => {
+
+        element.textContent =
+          formatMoney(number);
+
+      }
     );
-
-
-  balanceElements.forEach(
-    (element) => {
-
-      element.textContent =
-        formatMoney(
-          number
-        );
-
-    }
-  );
 
 
   console.log(
@@ -292,48 +277,27 @@ function refreshTaskaBalance(
 
 
 // ======================================================
-// TELEGRAM STARTUP
+// TELEGRAM START
 // ======================================================
 
 if (tg) {
 
   try {
-
     tg.ready();
-
-  } catch (error) {
-
-    console.warn(
-      "Taska: Telegram ready error:",
-      error
-    );
-
-  }
-
+  } catch {}
 
   try {
-
     tg.expand();
-
-  } catch (error) {
-
-    console.warn(
-      "Taska: Telegram expand error:",
-      error
-    );
-
-  }
+  } catch {}
 
 }
 
 
 // ======================================================
-// TELEGRAM THEME
+// THEME
 // ======================================================
 
-if (
-  tg?.themeParams
-) {
+if (tg?.themeParams) {
 
   const root =
     document.documentElement;
@@ -342,9 +306,7 @@ if (
     tg.themeParams;
 
 
-  if (
-    theme.bg_color
-  ) {
+  if (theme.bg_color) {
 
     root.style.setProperty(
       "--bg",
@@ -354,9 +316,7 @@ if (
   }
 
 
-  if (
-    theme.text_color
-  ) {
+  if (theme.text_color) {
 
     root.style.setProperty(
       "--text",
@@ -366,9 +326,7 @@ if (
   }
 
 
-  if (
-    theme.hint_color
-  ) {
+  if (theme.hint_color) {
 
     root.style.setProperty(
       "--muted",
@@ -395,26 +353,13 @@ function getCurrentUser() {
 }
 
 
-// ======================================================
-// DISPLAY NAME
-// ======================================================
-
 function getDisplayName() {
 
   const user =
     getCurrentUser();
 
 
-  if (!user) {
-
-    return "Taska User";
-
-  }
-
-
-  if (
-    user.username
-  ) {
+  if (user?.username) {
 
     return (
       "@" +
@@ -425,62 +370,38 @@ function getDisplayName() {
 
 
   return (
-
     [
-      user.first_name,
-      user.last_name
+      user?.first_name,
+      user?.last_name
     ]
-
       .filter(Boolean)
-
       .join(" ")
-
-    || "Taska User"
-
+    ||
+    "Taska User"
   );
 
 }
 
 
-// ======================================================
-// FIRST NAME
-// ======================================================
-
 function getFirstName() {
 
-  const user =
-    getCurrentUser();
-
-
   return (
-    user?.first_name ||
+    getCurrentUser()?.first_name ||
     "User"
   );
 
 }
 
 
-// ======================================================
-// PHOTO
-// ======================================================
-
 function getPhoto() {
 
-  const user =
-    getCurrentUser();
-
-
   return (
-    user?.photo_url ||
+    getCurrentUser()?.photo_url ||
     ""
   );
 
 }
 
-
-// ======================================================
-// TELEGRAM ID
-// ======================================================
 
 function getTelegramId() {
 
@@ -488,26 +409,21 @@ function getTelegramId() {
     getCurrentUser();
 
 
-  if (
-    !user?.id &&
-    !user?.telegram_id
-  ) {
-
-    return "";
-
-  }
-
-
-  return String(
-    user.id ||
-    user.telegram_id
+  return (
+    user?.id ||
+    user?.telegram_id
+      ? String(
+          user.id ||
+          user.telegram_id
+        )
+      : ""
   );
 
 }
 
 
 // ======================================================
-// HTML ESCAPE
+// ESCAPE HTML
 // ======================================================
 
 function escapeHTML(
@@ -526,56 +442,26 @@ function escapeHTML(
 
   return String(value)
 
-    .replace(
-      /&/g,
-      "&amp;"
-    )
+    .replace(/&/g, "&amp;")
 
-    .replace(
-      /</g,
-      "&lt;"
-    )
+    .replace(/</g, "&lt;")
 
-    .replace(
-      />/g,
-      "&gt;"
-    )
+    .replace(/>/g, "&gt;")
 
-    .replace(
-      /"/g,
-      "&quot;"
-    )
+    .replace(/"/g, "&quot;")
 
-    .replace(
-      /'/g,
-      "&#039;"
-    );
+    .replace(/'/g, "&#039;");
 
 }
 
 
 // ======================================================
-// APP DOM
+// APP
 // ======================================================
 
 const app =
-  document.querySelector(
-    ".app"
-  );
+  document.querySelector(".app");
 
-
-if (!app) {
-
-  console.error(
-    "Taska: .app element was not found."
-  );
-
-}
-
-
-// ======================================================
-// SAVE ORIGINAL HOME
-// ======================================================
 
 const initialHomeHTML =
   app
@@ -584,7 +470,7 @@ const initialHomeHTML =
 
 
 // ======================================================
-// ICON HELPER
+// ICON
 // ======================================================
 
 function icon(
@@ -604,10 +490,7 @@ function icon(
 
 
 // ======================================================
-// INLINE CLOCK ICON
-// IMPORTANT:
-// This does NOT depend on SVG sprite.
-// So clock icon will always be visible.
+// CLOCK
 // ======================================================
 
 function clockIcon() {
@@ -639,13 +522,6 @@ function clockIcon() {
         stroke-linejoin="round"
       />
 
-      <path
-        d="M9 3.8L7.5 2.8M15 3.8L16.5 2.8"
-        stroke="currentColor"
-        stroke-width="1.6"
-        stroke-linecap="round"
-      />
-
     </svg>
 
   `;
@@ -663,27 +539,11 @@ function haptic(
 
   try {
 
-    if (
-      tg?.HapticFeedback &&
-      typeof tg.HapticFeedback.impactOccurred ===
-      "function"
-    ) {
-
-      tg.HapticFeedback
-        .impactOccurred(
-          type
-        );
-
-    }
-
-  } catch (error) {
-
-    console.warn(
-      "Taska: Haptic unavailable:",
-      error
+    tg?.HapticFeedback?.impactOccurred(
+      type
     );
 
-  }
+  } catch {}
 
 }
 
@@ -697,15 +557,13 @@ function showToast(
 ) {
 
   const toast =
-    document.getElementById(
-      "toast"
-    );
+    document.getElementById("toast");
 
 
   if (!toast) {
 
     console.log(
-      "Taska Toast:",
+      "Taska:",
       message
     );
 
@@ -715,14 +573,10 @@ function showToast(
 
 
   toast.textContent =
-    String(
-      message
-    );
+    String(message);
 
 
-  toast.classList.add(
-    "show"
-  );
+  toast.classList.add("show");
 
 
   clearTimeout(
@@ -801,7 +655,7 @@ function setupUserUI() {
 
 
 // ======================================================
-// AUTHENTICATE USER
+// AUTHENTICATE
 // ======================================================
 
 async function authenticateTaskaUser() {
@@ -818,11 +672,6 @@ async function authenticateTaskaUser() {
 
 
   try {
-
-    console.log(
-      "Taska: Authenticating user..."
-    );
-
 
     const response =
       await fetch(
@@ -844,21 +693,8 @@ async function authenticateTaskaUser() {
       );
 
 
-    let data;
-
-
-    try {
-
-      data =
-        await response.json();
-
-    } catch {
-
-      throw new Error(
-        "Invalid server response"
-      );
-
-    }
+    const data =
+      await response.json();
 
 
     if (
@@ -866,14 +702,8 @@ async function authenticateTaskaUser() {
       !data.ok
     ) {
 
-      console.error(
-        "Taska authentication failed:",
-        data
-      );
-
-
       showToast(
-        data.error ||
+        data?.error ||
         "Unable to connect to Taska server"
       );
 
@@ -890,16 +720,9 @@ async function authenticateTaskaUser() {
     setupUserUI();
 
 
-    if (
-      taskaUser &&
-      taskaUser.balance !== undefined
-    ) {
-
-      refreshTaskaBalance(
-        taskaUser.balance
-      );
-
-    }
+    refreshTaskaBalance(
+      taskaUser.balance
+    );
 
 
     console.log(
@@ -909,7 +732,6 @@ async function authenticateTaskaUser() {
 
 
     return taskaUser;
-
 
   } catch (error) {
 
@@ -933,10 +755,76 @@ async function authenticateTaskaUser() {
 
 
 // ======================================================
-// INITIAL USER UI
+// DATE HELPERS
 // ======================================================
 
-setupUserUI();
+function dateKey(
+  date
+) {
+
+  return (
+    `${date.getFullYear()}-` +
+    `${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}-` +
+    `${String(
+      date.getDate()
+    ).padStart(2, "0")}`
+  );
+
+}
+
+
+function startOfToday() {
+
+  const date =
+    new Date();
+
+
+  date.setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+
+  return date;
+
+}
+
+
+function formatShortDay(
+  date
+) {
+
+  return new Intl.DateTimeFormat(
+    "en-US",
+    {
+      weekday:
+        "short"
+    }
+  ).format(date);
+
+}
+
+
+function formatMonthDay(
+  date
+) {
+
+  return new Intl.DateTimeFormat(
+    "en-US",
+    {
+      month:
+        "short",
+
+      day:
+        "numeric"
+    }
+  ).format(date);
+
+}
 
 
 // ======================================================
@@ -968,119 +856,176 @@ function pageHeader(
 
 
 // ======================================================
-// DATE HELPERS
+// HOME STATISTICS
 // ======================================================
 
-function dateKey(
-  date
+function renderHomeStats(
+  stats
 ) {
 
-  const year =
-    date.getFullYear();
+  homeStats = {
+
+    total_earned:
+      Number(
+        stats?.total_earned || 0
+      ),
+
+    referrals:
+      Number(
+        stats?.referrals || 0
+      ),
+
+    tasks_completed:
+      Number(
+        stats?.tasks_completed || 0
+      ),
+
+    total_withdrawn:
+      Number(
+        stats?.total_withdrawn || 0
+      ),
+
+    today_earned:
+      Number(
+        stats?.today_earned || 0
+      )
+
+  };
 
 
-  const month =
-    String(
-      date.getMonth() + 1
-    ).padStart(
-      2,
-      "0"
+  const totalEarned =
+    document.getElementById(
+      "statTotalEarnings"
     );
 
 
-  const day =
-    String(
-      date.getDate()
-    ).padStart(
-      2,
-      "0"
+  const referrals =
+    document.getElementById(
+      "statReferrals"
     );
 
 
-  return (
-    `${year}-${month}-${day}`
-  );
+  const tasks =
+    document.getElementById(
+      "statTasksCompleted"
+    );
+
+
+  const withdrawn =
+    document.getElementById(
+      "statTotalWithdrawn"
+    );
+
+
+  const today =
+    document.getElementById(
+      "todayEarnings"
+    );
+
+
+  if (totalEarned) {
+
+    totalEarned.textContent =
+      formatMoney(
+        homeStats.total_earned
+      );
+
+  }
+
+
+  if (referrals) {
+
+    referrals.textContent =
+      String(
+        homeStats.referrals
+      );
+
+  }
+
+
+  if (tasks) {
+
+    tasks.textContent =
+      String(
+        homeStats.tasks_completed
+      );
+
+  }
+
+
+  if (withdrawn) {
+
+    withdrawn.textContent =
+      formatMoney(
+        homeStats.total_withdrawn
+      );
+
+  }
+
+
+  if (today) {
+
+    today.textContent =
+      formatMoney(
+        homeStats.today_earned
+      );
+
+  }
 
 }
 
 
 // ======================================================
-// START OF TODAY
+// LOAD HOME STATISTICS
 // ======================================================
 
-function startOfToday() {
+async function loadHomeStats() {
 
-  const date =
-    new Date();
+  try {
 
-
-  date.setHours(
-    0,
-    0,
-    0,
-    0
-  );
+    console.log(
+      "Taska: Loading real statistics..."
+    );
 
 
-  return date;
+    const data =
+      await taskaAPI(
+        "/api/stats"
+      );
+
+
+    console.log(
+      "Taska: Statistics response:",
+      data
+    );
+
+
+    renderHomeStats(
+      data.stats
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Taska: Statistics error:",
+      error
+    );
+
+  }
 
 }
 
 
 // ======================================================
-// DAY NAME
-// ======================================================
-
-function formatShortDay(
-  date
-) {
-
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      weekday:
-        "short"
-    }
-  ).format(
-    date
-  );
-
-}
-
-
-// ======================================================
-// MONTH + DAY
-// ======================================================
-
-function formatMonthDay(
-  date
-) {
-
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      month:
-        "short",
-
-      day:
-        "numeric"
-    }
-  ).format(
-    date
-  );
-
-}
-
-
-// ======================================================
-// CHECK-IN REWARD BY STREAK
+// CHECK-IN REWARD
 // ======================================================
 
 function rewardForStreak(
   streak
 ) {
 
-  const safeStreak =
+  const safe =
     Math.min(
       7,
       Math.max(
@@ -1093,42 +1038,28 @@ function rewardForStreak(
   return Number(
     (
       0.10 *
-      safeStreak
+      safe
     ).toFixed(2)
   );
 
 }
 
 
-// ======================================================
-// NEXT STREAK
-// ======================================================
-
 function nextStreakFrom(
   streak
 ) {
 
   const current =
-    Number(
-      streak || 0
-    );
+    Number(streak || 0);
 
 
-  if (
-    current <= 0
-  ) {
-
+  if (current <= 0) {
     return 1;
-
   }
 
 
-  if (
-    current >= 7
-  ) {
-
+  if (current >= 7) {
     return 1;
-
   }
 
 
@@ -1138,7 +1069,7 @@ function nextStreakFrom(
 
 
 // ======================================================
-// NEXT MIDNIGHT
+// COUNTDOWN
 // ======================================================
 
 function getNextMidnight() {
@@ -1156,10 +1087,6 @@ function getNextMidnight() {
 
 }
 
-
-// ======================================================
-// COUNTDOWN
-// ======================================================
 
 function getCountdownText() {
 
@@ -1185,9 +1112,7 @@ function getCountdownText() {
 
   const minutes =
     Math.floor(
-      (
-        totalSeconds % 3600
-      ) / 60
+      (totalSeconds % 3600) / 60
     );
 
 
@@ -1196,50 +1121,29 @@ function getCountdownText() {
 
 
   return (
-
-    String(hours)
-      .padStart(2, "0")
-
-    + "h "
-
-    + String(minutes)
-      .padStart(2, "0")
-
-    + "m "
-
-    + String(seconds)
-      .padStart(2, "0")
-
-    + "s"
-
+    String(hours).padStart(2, "0") +
+    "h " +
+    String(minutes).padStart(2, "0") +
+    "m " +
+    String(seconds).padStart(2, "0") +
+    "s"
   );
 
 }
 
 
 // ======================================================
-// LOAD CHECK-IN STATUS FROM BACKEND
+// CHECK-IN STATUS
 // ======================================================
 
 async function loadCheckinStatus() {
 
   try {
 
-    console.log(
-      "Taska: Loading check-in status..."
-    );
-
-
     const data =
       await taskaAPI(
         "/api/checkin/status"
       );
-
-
-    console.log(
-      "Taska: Check-in status:",
-      data
-    );
 
 
     checkinStatus = {
@@ -1293,28 +1197,16 @@ async function loadCheckinStatus() {
     };
 
 
-    if (
+    checkinClaimedDate =
       checkinStatus.today_claimed
-    ) {
-
-      checkinClaimedDate =
-        dateKey(
-          startOfToday()
-        );
-
-    } else {
-
-      checkinClaimedDate =
-        null;
-
-    }
+        ? dateKey(startOfToday())
+        : null;
 
 
     renderCheckinCalendar();
 
 
     return checkinStatus;
-
 
   } catch (error) {
 
@@ -1323,13 +1215,6 @@ async function loadCheckinStatus() {
       error
     );
 
-
-    /*
-     * Do not break the page if status endpoint
-     * is temporarily unavailable.
-     *
-     * Use safe default values.
-     */
 
     renderCheckinCalendar();
 
@@ -1342,7 +1227,7 @@ async function loadCheckinStatus() {
 
 
 // ======================================================
-// RENDER 7 DAY CALENDAR
+// CHECK-IN CALENDAR
 // ======================================================
 
 function renderCheckinCalendar() {
@@ -1354,9 +1239,7 @@ function renderCheckinCalendar() {
 
 
   if (!grid) {
-
     return;
-
   }
 
 
@@ -1365,9 +1248,7 @@ function renderCheckinCalendar() {
 
 
   const todayKey =
-    dateKey(
-      today
-    );
+    dateKey(today);
 
 
   const claimed =
@@ -1376,35 +1257,13 @@ function renderCheckinCalendar() {
       todayKey;
 
 
-  /*
-   * IMPORTANT:
-   *
-   * If today's check-in is already claimed:
-   *
-   *   today = today's streak
-   *
-   * Example:
-   *   Day 3 claimed
-   *   Today = ৳0.30
-   *   Tomorrow = ৳0.40
-   *   ...
-   *   Day 7 = ৳0.70
-   *   Next cycle = ৳0.10
-   *
-   * If today's check-in is NOT claimed:
-   *
-   *   today = next_streak
-   */
-
   let startingStreak =
     claimed
       ? Number(
-          checkinStatus.today_streak ||
-          1
+          checkinStatus.today_streak || 1
         )
       : Number(
-          checkinStatus.next_streak ||
-          1
+          checkinStatus.next_streak || 1
         );
 
 
@@ -1413,14 +1272,12 @@ function renderCheckinCalendar() {
     startingStreak > 7
   ) {
 
-    startingStreak =
-      1;
+    startingStreak = 1;
 
   }
 
 
-  const days =
-    [];
+  const days = [];
 
 
   for (
@@ -1430,14 +1287,11 @@ function renderCheckinCalendar() {
   ) {
 
     const date =
-      new Date(
-        today
-      );
+      new Date(today);
 
 
     date.setDate(
-      today.getDate() +
-      i
+      today.getDate() + i
     );
 
 
@@ -1445,48 +1299,29 @@ function renderCheckinCalendar() {
       i === 0;
 
 
-    const isCompleted =
-      isToday &&
-      claimed;
+    const completed =
+      isToday && claimed;
 
 
     const state =
-      isCompleted
+      completed
         ? "completed"
         : isToday
           ? "today"
           : "locked";
 
 
-    /*
-     * Reward increases day by day:
-     *
-     * 0.10
-     * 0.20
-     * 0.30
-     * ...
-     * 0.70
-     *
-     * Then starts from 0.10.
-     */
-
-    let streakForDay =
+    let streak =
       startingStreak + i;
 
 
-    while (
-      streakForDay > 7
-    ) {
-
-      streakForDay -= 7;
-
+    while (streak > 7) {
+      streak -= 7;
     }
 
 
-    const dayReward =
-      rewardForStreak(
-        streakForDay
-      );
+    const reward =
+      rewardForStreak(streak);
 
 
     days.push(`
@@ -1496,107 +1331,87 @@ function renderCheckinCalendar() {
           checkin-day
           checkin-day-${state}
         "
-        data-checkin-date="${dateKey(date)}"
       >
 
-        <span
-          class="checkin-day-name"
-        >
+        <span class="checkin-day-name">
           ${
             isToday
               ? "Today"
               : escapeHTML(
-                  formatShortDay(
-                    date
-                  )
+                  formatShortDay(date)
                 )
           }
         </span>
 
 
-        <strong
-          class="checkin-day-number"
-        >
+        <strong class="checkin-day-number">
           ${date.getDate()}
         </strong>
 
 
-        <span
-          class="checkin-day-month"
-        >
+        <span class="checkin-day-month">
           ${escapeHTML(
-            formatMonthDay(
-              date
-            )
+            formatMonthDay(date)
           )}
         </span>
 
 
-      <span
-  class="
-    checkin-day-status
-    ${
-      isCompleted
-        ? "checkin-status-completed"
-        : isToday
-          ? "checkin-status-live"
-          : "checkin-status-locked"
-    }
-  "
-  aria-label="${
-    isCompleted
-      ? "Completed"
-      : isToday
-        ? "Live"
-        : "Locked"
-  }"
->
-  ${
-    isCompleted
-
-      ? `
-        <svg
-          class="checkin-status-icon"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            d="M5 12.5l4.2 4.2L19 7"
-          ></path>
-        </svg>
-      `
-
-      : isToday
-
-        ? "LIVE"
-
-        : `
-          <svg
-            class="checkin-status-icon"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <rect
-              x="5"
-              y="10"
-              width="14"
-              height="10"
-              rx="2.5"
-            ></rect>
-
-            <path
-              d="M8 10V7a4 4 0 0 1 8 0v3"
-            ></path>
-          </svg>
-        `
-  }
-</span>
-
-
         <span
-          class="checkin-day-reward"
+          class="
+            checkin-day-status
+            ${
+              completed
+                ? "checkin-status-completed"
+                : isToday
+                  ? "checkin-status-live"
+                  : "checkin-status-locked"
+            }
+          "
         >
-          +${formatMoney(dayReward)}
+
+          ${
+            completed
+
+              ? `
+                <svg
+                  class="checkin-status-icon"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M5 12.5l4.2 4.2L19 7"
+                  ></path>
+                </svg>
+              `
+
+              : isToday
+
+                ? "LIVE"
+
+                : `
+                  <svg
+                    class="checkin-status-icon"
+                    viewBox="0 0 24 24"
+                  >
+                    <rect
+                      x="5"
+                      y="10"
+                      width="14"
+                      height="10"
+                      rx="2.5"
+                    ></rect>
+
+                    <path
+                      d="M8 10V7a4 4 0 0 1 8 0v3"
+                    ></path>
+                  </svg>
+                `
+          }
+
+        </span>
+
+
+        <span class="checkin-day-reward">
+          +${formatMoney(reward)}
         </span>
 
       </div>
@@ -1610,10 +1425,6 @@ function renderCheckinCalendar() {
     days.join("");
 
 
-  // ====================================================
-  // PROGRESS
-  // ====================================================
-
   const progressFill =
     document.querySelector(
       ".checkin-progress-fill"
@@ -1623,42 +1434,26 @@ function renderCheckinCalendar() {
   const progressValue =
     claimed
       ? Number(
-          checkinStatus.today_streak ||
-          1
+          checkinStatus.today_streak || 1
         )
       : Math.max(
           0,
           Number(
-            checkinStatus.next_streak ||
-            1
+            checkinStatus.next_streak || 1
           ) - 1
         );
 
 
   if (progressFill) {
 
-    const percentage =
-      Math.min(
-        100,
-        Math.max(
-          0,
-          (
-            progressValue /
-            7
-          ) * 100
-        )
-      );
-
-
     progressFill.style.width =
-      `${percentage}%`;
+      `${Math.min(
+        100,
+        (progressValue / 7) * 100
+      )}%`;
 
   }
 
-
-  // ====================================================
-  // PROGRESS LABEL
-  // ====================================================
 
   const progressLabel =
     document.querySelector(
@@ -1669,24 +1464,10 @@ function renderCheckinCalendar() {
   if (progressLabel) {
 
     progressLabel.textContent =
-      claimed
-
-        ? `${checkinStatus.today_streak} / 7 days`
-
-        : `${Math.max(
-            0,
-            Number(
-              checkinStatus.next_streak ||
-              1
-            ) - 1
-          )} / 7 days`;
+      `${progressValue} / 7 days`;
 
   }
 
-
-  // ====================================================
-  // CLAIM BUTTON
-  // ====================================================
 
   const action =
     document.getElementById(
@@ -1704,23 +1485,6 @@ function renderCheckinCalendar() {
     document.getElementById(
       "dailyCheckinCountdown"
     );
-
-
-  const nextReward =
-    claimed
-
-      ? rewardForStreak(
-          nextStreakFrom(
-            checkinStatus.today_streak
-          )
-        )
-
-      : Number(
-          checkinStatus.next_reward ||
-          rewardForStreak(
-            checkinStatus.next_streak
-          )
-        );
 
 
   if (action) {
@@ -1754,14 +1518,11 @@ function renderCheckinCalendar() {
 
     status.textContent =
       claimed
-
         ? `Today's reward ${formatMoney(
             checkinStatus.today_reward
           )} has been collected successfully.`
-
         : `Today's reward is LIVE. Claim ${formatMoney(
-            checkinStatus.next_reward ||
-            0.10
+            checkinStatus.next_reward || 0.10
           )} now.`;
 
   }
@@ -1774,101 +1535,11 @@ function renderCheckinCalendar() {
 
   }
 
-
-  // ====================================================
-  // NEXT REWARD TEXT
-  // ====================================================
-
-  const nextRewardElement =
-    document.querySelector(
-      ".checkin-live-content"
-    );
-
-
-  /*
-   * We intentionally do not inject extra text here.
-   * The existing countdown UI remains clean.
-   */
-
 }
 
 
 // ======================================================
-// START DAILY COUNTDOWN
-// ======================================================
-
-function startCheckinCountdown() {
-
-  clearInterval(
-    checkinTimer
-  );
-
-
-  renderCheckinCalendar();
-
-
-  checkinTimer =
-    setInterval(
-      async () => {
-
-        const countdown =
-          document.getElementById(
-            "dailyCheckinCountdown"
-          );
-
-
-        if (countdown) {
-
-          countdown.textContent =
-            getCountdownText();
-
-        }
-
-
-        /*
-         * When midnight is reached,
-         * reload server status.
-         */
-
-        const remaining =
-          getNextMidnight() -
-          Date.now();
-
-
-        if (
-          remaining <= 1000
-        ) {
-
-          await loadCheckinStatus();
-
-        }
-
-
-        if (
-          !document.getElementById(
-            "checkinDays"
-          )
-        ) {
-
-          clearInterval(
-            checkinTimer
-          );
-
-
-          checkinTimer =
-            null;
-
-        }
-
-      },
-      1000
-    );
-
-}
-
-
-// ======================================================
-// DAILY CHECK-IN PAGE
+// CHECK-IN PAGE
 // ======================================================
 
 function dailyCheckinPage() {
@@ -1881,45 +1552,29 @@ function dailyCheckinPage() {
     )}
 
 
-    <section
-      class="daily-checkin-card"
-    >
+    <section class="daily-checkin-card">
 
 
-      <!-- HEADER -->
+      <div class="daily-checkin-head">
 
-      <div
-        class="daily-checkin-head"
-      >
-
-        <div
-          class="daily-checkin-icon"
-        >
+        <div class="daily-checkin-icon">
           ${icon("calendar")}
         </div>
 
 
-        <div
-          class="daily-checkin-head-text"
-        >
+        <div class="daily-checkin-head-text">
 
-          <span
-            class="daily-checkin-label"
-          >
+          <span class="daily-checkin-label">
             7 DAY REWARD
           </span>
-
 
           <h2>
             Daily Check-in
           </h2>
 
-
           <p>
             Claim
-            <strong>
-              ৳0.10
-            </strong>
+            <strong>৳0.10</strong>
             or more every day.
           </p>
 
@@ -1928,15 +1583,9 @@ function dailyCheckinPage() {
       </div>
 
 
-      <!-- PROGRESS -->
+      <div class="checkin-progress-wrap">
 
-      <div
-        class="checkin-progress-wrap"
-      >
-
-        <div
-          class="checkin-progress-label"
-        >
+        <div class="checkin-progress-label">
 
           <span>
             Weekly streak
@@ -1949,9 +1598,7 @@ function dailyCheckinPage() {
         </div>
 
 
-        <div
-          class="checkin-progress-track"
-        >
+        <div class="checkin-progress-track">
 
           <span
             class="checkin-progress-fill"
@@ -1962,57 +1609,38 @@ function dailyCheckinPage() {
       </div>
 
 
-      <!-- 7 DAYS -->
-
       <div
         id="checkinDays"
         class="checkin-days"
       ></div>
 
 
-      <!-- LIVE COUNTDOWN -->
+      <div class="checkin-live-panel">
 
-      <div
-        class="checkin-live-panel"
-      >
-
-        <div
-          class="checkin-live-icon"
-        >
-
+        <div class="checkin-live-icon">
           ${clockIcon()}
-
         </div>
 
 
-        <div
-          class="checkin-live-content"
-        >
+        <div class="checkin-live-content">
 
           <span>
             Next check-in
           </span>
 
-
-          <strong
-            id="dailyCheckinCountdown"
-          >
+          <strong id="dailyCheckinCountdown">
             00h 00m 00s
           </strong>
 
         </div>
 
 
-        <span
-          class="checkin-live-badge"
-        >
+        <span class="checkin-live-badge">
           LIVE
         </span>
 
       </div>
 
-
-      <!-- STATUS -->
 
       <div
         class="daily-checkin-status"
@@ -2022,14 +1650,9 @@ function dailyCheckinPage() {
       </div>
 
 
-      <!-- CLAIM -->
-
       <button
         type="button"
-        class="
-          primary-action
-          daily-checkin-action
-        "
+        class="primary-action daily-checkin-action"
         id="dailyCheckinAction"
         data-claimed="false"
       >
@@ -2037,14 +1660,9 @@ function dailyCheckinPage() {
       </button>
 
 
-      <!-- BACK -->
-
       <button
         type="button"
-        class="
-          secondary-action
-          daily-checkin-back
-        "
+        class="secondary-action daily-checkin-back"
         id="backToEarn"
       >
 
@@ -2063,7 +1681,7 @@ function dailyCheckinPage() {
 
 
 // ======================================================
-// DAILY CHECK-IN CLAIM
+// CLAIM DAILY CHECK-IN
 // ======================================================
 
 async function claimDailyCheckin(
@@ -2078,9 +1696,7 @@ async function claimDailyCheckin(
 
 
   if (!button) {
-
     return;
-
   }
 
 
@@ -2088,9 +1704,7 @@ async function claimDailyCheckin(
     button.dataset.claiming ===
     "true"
   ) {
-
     return;
-
   }
 
 
@@ -2099,14 +1713,9 @@ async function claimDailyCheckin(
     "true"
   ) {
 
-    button.textContent =
-      "✓ Completed";
-
-
     showToast(
       "Today's reward is already completed"
     );
-
 
     return;
 
@@ -2116,26 +1725,14 @@ async function claimDailyCheckin(
   button.dataset.claiming =
     "true";
 
-
   button.disabled =
     true;
-
 
   button.textContent =
     "Claiming...";
 
 
-  haptic(
-    "light"
-  );
-
-
   try {
-
-    console.log(
-      "Taska: Claiming daily check-in..."
-    );
-
 
     const data =
       await taskaAPI(
@@ -2143,21 +1740,9 @@ async function claimDailyCheckin(
       );
 
 
-    console.log(
-      "Taska: Daily check-in response:",
-      data
-    );
-
-
-    // --------------------------------------------------
-    // UPDATE BALANCE
-    // --------------------------------------------------
-
     if (
       data.balance !==
-      undefined &&
-      data.balance !==
-      null
+      undefined
     ) {
 
       refreshTaskaBalance(
@@ -2167,14 +1752,8 @@ async function claimDailyCheckin(
     }
 
 
-    // --------------------------------------------------
-    // UPDATE CHECK-IN STATE FROM SERVER
-    // --------------------------------------------------
-
     checkinClaimedDate =
-      dateKey(
-        startOfToday()
-      );
+      dateKey(startOfToday());
 
 
     checkinStatus.today_claimed =
@@ -2183,24 +1762,20 @@ async function claimDailyCheckin(
 
     checkinStatus.today_reward =
       Number(
-        data.reward ??
-        0.10
+        data.reward ?? 0.10
       );
 
 
     checkinStatus.today_streak =
       Number(
-        data.streak ??
-        1
+        data.streak ?? 1
       );
 
 
     checkinStatus.next_streak =
       Number(
         data.next_streak ??
-        nextStreakFrom(
-          data.streak
-        )
+        nextStreakFrom(data.streak)
       );
 
 
@@ -2212,15 +1787,6 @@ async function claimDailyCheckin(
         )
       );
 
-
-    checkinStatus.next_checkin_at =
-      data.next_checkin_at ||
-      null;
-
-
-    // --------------------------------------------------
-    // BUTTON = COMPLETED
-    // --------------------------------------------------
 
     button.dataset.claiming =
       "false";
@@ -2238,36 +1804,8 @@ async function claimDailyCheckin(
       "✓ Completed";
 
 
-    // --------------------------------------------------
-    // UPDATE STATUS TEXT
-    // --------------------------------------------------
-
-    const status =
-      document.getElementById(
-        "dailyCheckinStatus"
-      );
-
-
-    if (status) {
-
-      status.textContent =
-        `Today's reward ${formatMoney(
-          checkinStatus.today_reward
-        )} has been collected successfully.`;
-
-    }
-
-
-    // --------------------------------------------------
-    // UPDATE CALENDAR
-    // --------------------------------------------------
-
     renderCheckinCalendar();
 
-
-    // --------------------------------------------------
-    // SUCCESS TOAST
-    // --------------------------------------------------
 
     showToast(
       `Daily reward added: ${formatMoney(
@@ -2276,10 +1814,10 @@ async function claimDailyCheckin(
     );
 
 
-    haptic(
-      "medium"
-    );
+    loadHomeStats();
 
+
+    haptic("medium");
 
   } catch (error) {
 
@@ -2289,21 +1827,13 @@ async function claimDailyCheckin(
     );
 
 
-    /*
-     * If backend says already claimed,
-     * update UI to Completed instead of
-     * showing Claim again.
-     */
-
     if (
       error.status === 409 ||
       error?.data?.today_claimed === true
     ) {
 
       checkinClaimedDate =
-        dateKey(
-          startOfToday()
-        );
+        dateKey(startOfToday());
 
 
       checkinStatus.today_claimed =
@@ -2359,11 +1889,6 @@ async function claimDailyCheckin(
       "Unable to claim daily reward"
     );
 
-
-    haptic(
-      "light"
-    );
-
   }
 
 }
@@ -2383,9 +1908,7 @@ function earnPage() {
     )}
 
 
-    <div
-      class="feature-list"
-    >
+    <div class="feature-list">
 
       <button
         class="feature-card"
@@ -2393,9 +1916,7 @@ function earnPage() {
         type="button"
       >
 
-        <div
-          class="feature-icon"
-        >
+        <div class="feature-icon">
           ${icon("calendar")}
         </div>
 
@@ -2405,7 +1926,6 @@ function earnPage() {
           <strong>
             Daily Check-in
           </strong>
-
 
           <span>
             Claim your daily reward once every day
@@ -2427,9 +1947,7 @@ function earnPage() {
         type="button"
       >
 
-        <div
-          class="feature-icon"
-        >
+        <div class="feature-icon">
           ${icon("play")}
         </div>
 
@@ -2439,7 +1957,6 @@ function earnPage() {
           <strong>
             Watch Ads
           </strong>
-
 
           <span>
             Verified ad rewards will appear here
@@ -2457,9 +1974,7 @@ function earnPage() {
     </div>
 
 
-    <div
-      class="section-title"
-    >
+    <div class="section-title">
 
       <h2>
         ${icon("checklist")}
@@ -2474,14 +1989,11 @@ function earnPage() {
       class="feature-list"
     >
 
-      <div
-        class="empty"
-      >
+      <div class="empty">
 
         <strong>
           Loading tasks...
         </strong>
-
 
         <span>
           Please wait
@@ -2497,995 +2009,7 @@ function earnPage() {
 
 
 // ======================================================
-// REFERRAL PAGE
-// ======================================================
-
-function referralPage() {
-
-  const code =
-    getTelegramId() ||
-    "YOUR_ID";
-
-
-  const link =
-    `https://t.me/TaskaEarn_bot?start=${encodeURIComponent(
-      code
-    )}`;
-
-
-  return `
-
-    ${pageHeader(
-      "Referral",
-      "Invite friends and earn rewards"
-    )}
-
-
-    <div
-      class="referral-card"
-    >
-
-      <div
-        class="referral-icon"
-      >
-        ${icon("users")}
-      </div>
-
-
-      <h2>
-        Refer & Earn
-      </h2>
-
-
-      <p>
-        Share your referral link with friends.
-        Qualified referrals can earn rewards.
-      </p>
-
-
-      <div
-        class="referral-box"
-      >
-        ${escapeHTML(link)}
-      </div>
-
-
-      <button
-        class="primary-action"
-        id="copyReferral"
-        type="button"
-      >
-
-        ${icon("copy")}
-
-        Copy Referral Link
-
-      </button>
-
-
-      <button
-        class="secondary-action"
-        id="shareReferral"
-        type="button"
-      >
-
-        ${icon("share")}
-
-        Share with Friends
-
-      </button>
-
-    </div>
-
-
-    <div
-      class="stats single-stat"
-    >
-
-      <div
-        class="stat-card"
-      >
-
-        <span
-          class="stat-icon"
-        >
-          ${icon("users")}
-        </span>
-
-
-        <div>
-
-          <span>
-            Friends Referred
-          </span>
-
-
-          <strong>
-            0
-          </strong>
-
-        </div>
-
-      </div>
-
-
-      <div
-        class="stat-card"
-      >
-
-        <span
-          class="stat-icon"
-        >
-          ${icon("wallet")}
-        </span>
-
-
-        <div>
-
-          <span>
-            Referral Earnings
-          </span>
-
-
-          <strong>
-            ৳0.00
-          </strong>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  `;
-
-}
-
-
-// ======================================================
-// WALLET PAGE
-// ======================================================
-
-function walletPage() {
-
-  const balance =
-    Number(
-      taskaUser?.balance ??
-      0
-    );
-
-
-  return `
-
-    ${pageHeader(
-      "Wallet",
-      "Manage your Taska balance"
-    )}
-
-
-    <div
-      class="wallet-card"
-    >
-
-      <div
-        class="wallet-label"
-      >
-        Available Balance
-      </div>
-
-
-      <div
-        class="wallet-balance"
-      >
-        ${formatMoney(balance)}
-      </div>
-
-
-      <button
-        class="primary-action"
-        id="walletWithdraw"
-        type="button"
-      >
-
-        ${icon("wallet")}
-
-        Withdraw
-
-      </button>
-
-    </div>
-
-
-    <div
-      class="stats"
-    >
-
-      <div
-        class="stat-card"
-      >
-
-        <span
-          class="stat-icon"
-        >
-          ${icon("chart")}
-        </span>
-
-
-        <div>
-
-          <span>
-            Total Earned
-          </span>
-
-
-          <strong>
-            ৳0.00
-          </strong>
-
-        </div>
-
-      </div>
-
-
-      <div
-        class="stat-card"
-      >
-
-        <span
-          class="stat-icon"
-        >
-          ${icon("wallet")}
-        </span>
-
-
-        <div>
-
-          <span>
-            Total Withdrawn
-          </span>
-
-
-          <strong>
-            ৳0.00
-          </strong>
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <div
-      class="section-title"
-    >
-
-      <h2>
-        ${icon("receipt")}
-        Transactions
-      </h2>
-
-    </div>
-
-
-    <section
-      class="transactions"
-    >
-
-      <div
-        class="empty"
-      >
-
-        <span
-          class="empty-icon"
-        >
-          ${icon("receipt")}
-        </span>
-
-
-        <strong>
-          No transactions yet
-        </strong>
-
-
-        <span>
-          Your earning history will appear here
-        </span>
-
-      </div>
-
-    </section>
-
-  `;
-
-}
-
-
-// ======================================================
-// PROFILE PAGE
-// ======================================================
-
-function profilePage() {
-
-  const user =
-    getCurrentUser();
-
-
-  const name =
-    [
-      user?.first_name,
-      user?.last_name
-    ]
-
-      .filter(Boolean)
-
-      .join(" ")
-
-    || "Taska User";
-
-
-  const username =
-    user?.username
-      ? `@${user.username}`
-      : "No username";
-
-
-  const photo =
-    getPhoto();
-
-
-  const avatar =
-    photo
-
-      ? `
-
-        <img
-          src="${escapeHTML(photo)}"
-          alt="Profile"
-        >
-
-      `
-
-      : "T";
-
-
-  return `
-
-    ${pageHeader(
-      "Profile",
-      "Manage your Taska account"
-    )}
-
-
-    <div
-      class="profile-card"
-    >
-
-      <div
-        class="profile-avatar"
-      >
-        ${avatar}
-      </div>
-
-
-      <h2>
-        ${escapeHTML(name)}
-      </h2>
-
-
-      <p>
-        ${escapeHTML(username)}
-      </p>
-
-    </div>
-
-
-    <div
-      class="profile-menu"
-    >
-
-      <button
-        class="profile-item"
-        data-profile="support"
-        type="button"
-      >
-
-        <span>
-          ${icon("headphones")}
-        </span>
-
-
-        <div>
-
-          <strong>
-            Help & Support
-          </strong>
-
-
-          <small>
-            Get help with Taska
-          </small>
-
-        </div>
-
-
-        <b>
-          ${icon("arrow")}
-        </b>
-
-      </button>
-
-
-      <button
-        class="profile-item"
-        data-profile="settings"
-        type="button"
-      >
-
-        <span>
-          ${icon("settings")}
-        </span>
-
-
-        <div>
-
-          <strong>
-            Account Settings
-          </strong>
-
-
-          <small>
-            Manage your preferences
-          </small>
-
-        </div>
-
-
-        <b>
-          ${icon("arrow")}
-        </b>
-
-      </button>
-
-
-      <button
-        class="profile-item"
-        data-profile="terms"
-        type="button"
-      >
-
-        <span>
-          ${icon("file")}
-        </span>
-
-
-        <div>
-
-          <strong>
-            Terms & Conditions
-          </strong>
-
-
-          <small>
-            Taska rules and policies
-          </small>
-
-        </div>
-
-
-        <b>
-          ${icon("arrow")}
-        </b>
-
-      </button>
-
-
-      <button
-        class="profile-item"
-        data-profile="privacy"
-        type="button"
-      >
-
-        <span>
-          ${icon("shield")}
-        </span>
-
-
-        <div>
-
-          <strong>
-            Privacy Policy
-          </strong>
-
-
-          <small>
-            Learn how we protect your data
-          </small>
-
-        </div>
-
-
-        <b>
-          ${icon("arrow")}
-        </b>
-
-      </button>
-
-
-      <button
-        class="profile-item"
-        data-profile="about"
-        type="button"
-      >
-
-        <span>
-          ${icon("info")}
-        </span>
-
-
-        <div>
-
-          <strong>
-            About Taska
-          </strong>
-
-
-          <small>
-            App information
-          </small>
-
-        </div>
-
-
-        <b>
-          ${icon("arrow")}
-        </b>
-
-      </button>
-
-    </div>
-
-  `;
-
-}
-
-
-// ======================================================
-// LOAD PAGE
-// ======================================================
-
-function loadPage(
-  page
-) {
-
-  if (!app) {
-
-    return;
-
-  }
-
-
-  haptic(
-    "light"
-  );
-
-
-  clearInterval(
-    checkinTimer
-  );
-
-
-  checkinTimer =
-    null;
-
-
-  // ====================================================
-  // HOME
-  // ====================================================
-
-  if (
-    page === "Home"
-  ) {
-
-    app.innerHTML =
-      initialHomeHTML;
-
-
-    setupUserUI();
-
-
-    if (taskaUser) {
-
-      refreshTaskaBalance(
-        taskaUser.balance
-      );
-
-    }
-
-
-    setupHomeEvents();
-
-
-    return;
-
-  }
-
-
-  // ====================================================
-  // EARN
-  // ====================================================
-
-  if (
-    page === "Earn"
-  ) {
-
-    app.innerHTML =
-      earnPage();
-
-
-    setupEarnEvents();
-
-
-    return;
-
-  }
-
-
-  // ====================================================
-  // CHECK-IN
-  // ====================================================
-
-  if (
-    page === "Checkin"
-  ) {
-
-    app.innerHTML =
-      dailyCheckinPage();
-
-
-    setupDailyCheckinEvents();
-
-
-    return;
-
-  }
-
-
-  // ====================================================
-  // REFERRAL
-  // ====================================================
-
-  if (
-    page === "Referral"
-  ) {
-
-    app.innerHTML =
-      referralPage();
-
-
-    setupReferralEvents();
-
-
-    return;
-
-  }
-
-
-  // ====================================================
-  // WALLET
-  // ====================================================
-
-  if (
-    page === "Wallet"
-  ) {
-
-    app.innerHTML =
-      walletPage();
-
-
-    setupWalletEvents();
-
-
-    return;
-
-  }
-
-
-  // ====================================================
-  // PROFILE
-  // ====================================================
-
-  if (
-    page === "Profile"
-  ) {
-
-    app.innerHTML =
-      profilePage();
-
-
-    setupProfileEvents();
-
-
-    return;
-
-  }
-
-}
-
-
-// ======================================================
-// HOME EVENTS
-// ======================================================
-
-function setupHomeEvents() {
-
-  document
-    .querySelectorAll(
-      ".quick-card"
-    )
-    .forEach(
-      (card) => {
-
-        card.addEventListener(
-          "click",
-          () => {
-
-            const action =
-              (
-                card.dataset.action ||
-                ""
-              )
-                .toLowerCase();
-
-
-            const feature =
-              (
-                card.dataset.feature ||
-                ""
-              )
-                .toLowerCase();
-
-
-            if (
-              action ===
-              "checkin" ||
-
-              feature.includes(
-                "daily check"
-              )
-            ) {
-
-              loadPage(
-                "Checkin"
-              );
-
-
-              return;
-
-            }
-
-
-            showToast(
-              `${
-                card.dataset.feature ||
-                "This feature"
-              } will be available soon`
-            );
-
-
-            haptic(
-              "light"
-            );
-
-          }
-        );
-
-      }
-    );
-
-
-  document
-    .querySelectorAll(
-      ".feature-banner"
-    )
-    .forEach(
-      (banner) => {
-
-        banner.addEventListener(
-          "click",
-          () => {
-
-            showToast(
-              "Special offers will be available soon"
-            );
-
-          }
-        );
-
-      }
-    );
-
-
-  const withdraw =
-    document.getElementById(
-      "withdrawBtn"
-    );
-
-
-  if (withdraw) {
-
-    withdraw.addEventListener(
-      "click",
-      () => {
-
-        showToast(
-          "Withdrawal will be available soon"
-        );
-
-      }
-    );
-
-  }
-
-
-  const notification =
-    document.getElementById(
-      "notificationBtn"
-    );
-
-
-  if (notification) {
-
-    notification.addEventListener(
-      "click",
-      () => {
-
-        showToast(
-          "No new notifications"
-        );
-
-      }
-    );
-
-  }
-
-
-  const stats =
-    document.getElementById(
-      "viewStats"
-    );
-
-
-  if (stats) {
-
-    stats.addEventListener(
-      "click",
-      () => {
-
-        showToast(
-          "Detailed statistics will be available soon"
-        );
-
-      }
-    );
-
-  }
-
-
-  const transactions =
-    document.getElementById(
-      "viewTransactions"
-    );
-
-
-  if (transactions) {
-
-    transactions.addEventListener(
-      "click",
-      () => {
-
-        showToast(
-          "Transaction history will be available soon"
-        );
-
-      }
-    );
-
-  }
-
-
-  const eye =
-    document.querySelector(
-      ".balance-eye"
-    );
-
-
-  if (eye) {
-
-    eye.addEventListener(
-      "click",
-      () => {
-
-        showToast(
-          "Balance visibility control"
-        );
-
-      }
-    );
-
-  }
-
-}
-
-
-// ======================================================
-// DAILY CHECK-IN EVENTS
-// ======================================================
-
-function setupDailyCheckinEvents() {
-
-  const button =
-    document.getElementById(
-      "dailyCheckinAction"
-    );
-
-
-  if (button) {
-
-    button.addEventListener(
-      "click",
-      () => {
-
-        claimDailyCheckin(
-          button
-        );
-
-      }
-    );
-
-  }
-
-
-  const back =
-    document.getElementById(
-      "backToEarn"
-    );
-
-
-  if (back) {
-
-    back.addEventListener(
-      "click",
-      () => {
-
-        loadPage(
-          "Earn"
-        );
-
-      }
-    );
-
-  }
-
-
-  /*
-   * First render the current state,
-   * then ask backend for the real state.
-   */
-
-  renderCheckinCalendar();
-
-
-  loadCheckinStatus();
-
-
-  startCheckinCountdown();
-
-}
-
-
-// ======================================================
-// RENDER EARN TASKS
+// RENDER TASKS
 // ======================================================
 
 function renderEarnTasks(
@@ -3499,9 +2023,7 @@ function renderEarnTasks(
 
 
   if (!list) {
-
     return;
-
   }
 
 
@@ -3512,21 +2034,15 @@ function renderEarnTasks(
 
     list.innerHTML = `
 
-      <div
-        class="empty"
-      >
+      <div class="empty">
 
-        <span
-          class="empty-icon"
-        >
+        <span class="empty-icon">
           ${icon("checklist")}
         </span>
-
 
         <strong>
           No tasks available
         </strong>
-
 
         <span>
           New earning tasks will appear here
@@ -3543,104 +2059,91 @@ function renderEarnTasks(
 
 
   list.innerHTML =
-    tasks
-      .map(
-        (task) => {
+    tasks.map(
+      task => {
 
-          const taskId =
-            Number(
-              task.id
-            );
+        const taskId =
+          Number(task.id);
 
 
-          const completed =
-            task.completed === true ||
-            task.completed === 1 ||
-            task.completed === "1" ||
-            task.completed === "true";
+        const completed =
+          task.completed === true ||
+          task.completed === 1 ||
+          task.completed === "1" ||
+          task.completed === "true";
 
 
-          return `
+        return `
 
-            <div
-              class="feature-card task-card"
-              data-task-id="${taskId}"
-            >
+          <div
+            class="feature-card task-card"
+            data-task-id="${taskId}"
+          >
 
-              <div
-                class="feature-icon"
-              >
-                ${icon("checklist")}
-              </div>
+            <div class="feature-icon">
+              ${icon("checklist")}
+            </div>
 
 
-              <div
-                class="task-info"
-              >
+            <div class="task-info">
 
-                <strong>
-                  ${escapeHTML(
-                    task.title ||
-                    "Task"
-                  )}
-                </strong>
+              <strong>
+                ${escapeHTML(
+                  task.title || "Task"
+                )}
+              </strong>
 
 
-                <span>
-                  ${escapeHTML(
-                    task.description ||
-                    "Complete this task to earn a reward"
-                  )}
-                </span>
+              <span>
+                ${escapeHTML(
+                  task.description ||
+                  "Complete this task to earn a reward"
+                )}
+              </span>
 
 
-                <small>
-                  Reward:
-                  ${formatMoney(
-                    task.reward
-                  )}
-                </small>
-
-              </div>
-
-
-              <button
-                type="button"
-                class="primary-action task-claim"
-                data-task-id="${taskId}"
-                ${
-                  completed
-                    ? "disabled"
-                    : ""
-                }
-                data-completed="${
-                  completed
-                    ? "true"
-                    : "false"
-                }"
-              >
-
-                ${
-                  completed
-                    ? "Completed"
-                    : "Claim"
-                }
-
-              </button>
+              <small>
+                Reward:
+                ${formatMoney(task.reward)}
+              </small>
 
             </div>
 
-          `;
 
-        }
-      )
-      .join("");
+            <button
+              type="button"
+              class="primary-action task-claim"
+              data-task-id="${taskId}"
+              data-completed="${
+                completed
+                  ? "true"
+                  : "false"
+              }"
+              ${
+                completed
+                  ? "disabled"
+                  : ""
+              }
+            >
+              ${
+                completed
+                  ? "Completed"
+                  : "Claim"
+              }
+            </button>
+
+          </div>
+
+        `;
+
+      }
+    ).join("");
 
 }
 
 
 // ======================================================
-// LOAD EARN TASKS
+// LOAD TASKS
 // ======================================================
 
 async function loadEarnTasks() {
@@ -3652,22 +2155,17 @@ async function loadEarnTasks() {
 
 
   if (!list) {
-
     return;
-
   }
 
 
   list.innerHTML = `
 
-    <div
-      class="empty"
-    >
+    <div class="empty">
 
       <strong>
         Loading tasks...
       </strong>
-
 
       <span>
         Please wait
@@ -3680,21 +2178,10 @@ async function loadEarnTasks() {
 
   try {
 
-    console.log(
-      "Taska: Loading tasks..."
-    );
-
-
     const data =
       await taskaAPI(
         "/api/tasks"
       );
-
-
-    console.log(
-      "Taska: Tasks response:",
-      data
-    );
 
 
     earnTasks =
@@ -3709,7 +2196,6 @@ async function loadEarnTasks() {
       earnTasks
     );
 
-
   } catch (error) {
 
     console.error(
@@ -3720,14 +2206,11 @@ async function loadEarnTasks() {
 
     list.innerHTML = `
 
-      <div
-        class="empty"
-      >
+      <div class="empty">
 
         <strong>
           Unable to load tasks
         </strong>
-
 
         <span>
           ${escapeHTML(
@@ -3750,20 +2233,14 @@ async function loadEarnTasks() {
     `;
 
 
-    const retry =
-      document.getElementById(
+    document
+      .getElementById(
         "retryTasks"
-      );
-
-
-    if (retry) {
-
-      retry.addEventListener(
+      )
+      ?.addEventListener(
         "click",
         loadEarnTasks
       );
-
-    }
 
   }
 
@@ -3780,9 +2257,7 @@ async function claimTask(
 ) {
 
   const numericTaskId =
-    Number(
-      taskId
-    );
+    Number(taskId);
 
 
   if (
@@ -3795,7 +2270,6 @@ async function claimTask(
       "Invalid task"
     );
 
-
     return;
 
   }
@@ -3803,7 +2277,7 @@ async function claimTask(
 
   const task =
     earnTasks.find(
-      (item) =>
+      item =>
         Number(item.id) ===
         numericTaskId
     );
@@ -3814,7 +2288,6 @@ async function claimTask(
     showToast(
       "Task not found. Please reload tasks."
     );
-
 
     return;
 
@@ -3833,7 +2306,6 @@ async function claimTask(
     showToast(
       "This task is already completed"
     );
-
 
     return;
 
@@ -3854,9 +2326,7 @@ async function claimTask(
     button?.dataset.claiming ===
     "true"
   ) {
-
     return;
-
   }
 
 
@@ -3865,20 +2335,13 @@ async function claimTask(
     button.dataset.claiming =
       "true";
 
-
     button.disabled =
       true;
-
 
     button.textContent =
       "Claiming...";
 
   }
-
-
-  haptic(
-    "light"
-  );
 
 
   try {
@@ -3902,21 +2365,13 @@ async function claimTask(
       );
 
 
-    console.log(
-      "Taska: Claim response:",
-      data
-    );
-
-
     task.completed =
       true;
 
 
     if (
       data.balance !==
-      undefined &&
-      data.balance !==
-      null
+      undefined
     ) {
 
       refreshTaskaBalance(
@@ -3926,29 +2381,26 @@ async function claimTask(
     }
 
 
-    taskStartTimes.delete(
-      numericTaskId
-    );
-
-
     if (button) {
 
       button.dataset.claiming =
         "false";
 
-
       button.dataset.completed =
         "true";
 
-
       button.disabled =
         true;
-
 
       button.textContent =
         "Completed";
 
     }
+
+
+    taskStartTimes.delete(
+      numericTaskId
+    );
 
 
     showToast(
@@ -3958,10 +2410,10 @@ async function claimTask(
     );
 
 
-    haptic(
-      "medium"
-    );
+    loadHomeStats();
 
+
+    haptic("medium");
 
   } catch (error) {
 
@@ -3976,10 +2428,8 @@ async function claimTask(
       button.dataset.claiming =
         "false";
 
-
       button.disabled =
         false;
-
 
       button.textContent =
         "Claim";
@@ -3990,11 +2440,6 @@ async function claimTask(
     showToast(
       error?.message ||
       "Unable to claim task"
-    );
-
-
-    haptic(
-      "light"
     );
 
   }
@@ -4046,23 +2491,11 @@ function setupEarnEvents() {
           "Verified ads will be available soon"
         );
 
-
-        haptic(
-          "light"
-        );
-
       }
     );
 
   }
 
-
-  // ====================================================
-  // TASK CLAIM
-  //
-  // Event delegation is important because tasks
-  // are dynamically loaded from backend.
-  // ====================================================
 
   const taskList =
     document.getElementById(
@@ -4074,7 +2507,7 @@ function setupEarnEvents() {
 
     taskList.addEventListener(
       "click",
-      (event) => {
+      event => {
 
         const button =
           event.target.closest(
@@ -4083,14 +2516,11 @@ function setupEarnEvents() {
 
 
         if (!button) {
-
           return;
-
         }
 
 
         event.preventDefault();
-
 
         event.stopPropagation();
 
@@ -4124,6 +2554,770 @@ function setupEarnEvents() {
 
 
 // ======================================================
+// DAILY EVENTS
+// ======================================================
+
+function setupDailyCheckinEvents() {
+
+  const button =
+    document.getElementById(
+      "dailyCheckinAction"
+    );
+
+
+  button?.addEventListener(
+    "click",
+    () => {
+
+      claimDailyCheckin(
+        button
+      );
+
+    }
+  );
+
+
+  const back =
+    document.getElementById(
+      "backToEarn"
+    );
+
+
+  back?.addEventListener(
+    "click",
+    () => {
+
+      loadPage(
+        "Earn"
+      );
+
+    }
+  );
+
+
+  renderCheckinCalendar();
+
+  loadCheckinStatus();
+
+  startCheckinCountdown();
+
+}
+
+
+// ======================================================
+// COUNTDOWN
+// ======================================================
+
+function startCheckinCountdown() {
+
+  clearInterval(
+    checkinTimer
+  );
+
+
+  checkinTimer =
+    setInterval(
+      async () => {
+
+        const countdown =
+          document.getElementById(
+            "dailyCheckinCountdown"
+          );
+
+
+        if (countdown) {
+
+          countdown.textContent =
+            getCountdownText();
+
+        }
+
+
+        if (
+          getNextMidnight() -
+          Date.now() <=
+          1000
+        ) {
+
+          await loadCheckinStatus();
+
+        }
+
+
+        if (
+          !document.getElementById(
+            "checkinDays"
+          )
+        ) {
+
+          clearInterval(
+            checkinTimer
+          );
+
+          checkinTimer =
+            null;
+
+        }
+
+      },
+      1000
+    );
+
+}
+
+
+// ======================================================
+// REFERRAL PAGE
+// ======================================================
+
+function referralPage() {
+
+  const code =
+    getTelegramId() ||
+    "YOUR_ID";
+
+
+  const link =
+    `https://t.me/TaskaEarn_bot?start=${encodeURIComponent(
+      code
+    )}`;
+
+
+  return `
+
+    ${pageHeader(
+      "Referral",
+      "Invite friends and earn rewards"
+    )}
+
+
+    <div class="referral-card">
+
+      <div class="referral-icon">
+        ${icon("users")}
+      </div>
+
+
+      <h2>
+        Refer & Earn
+      </h2>
+
+
+      <p>
+        Share your referral link with friends.
+        Qualified referrals can earn rewards.
+      </p>
+
+
+      <div class="referral-box">
+        ${escapeHTML(link)}
+      </div>
+
+
+      <button
+        class="primary-action"
+        id="copyReferral"
+        type="button"
+      >
+
+        ${icon("copy")}
+
+        Copy Referral Link
+
+      </button>
+
+
+      <button
+        class="secondary-action"
+        id="shareReferral"
+        type="button"
+      >
+
+        ${icon("share")}
+
+        Share with Friends
+
+      </button>
+
+    </div>
+
+  `;
+
+}
+
+
+// ======================================================
+// WALLET
+// ======================================================
+
+function walletPage() {
+
+  const balance =
+    Number(
+      taskaUser?.balance ?? 0
+    );
+
+
+  return `
+
+    ${pageHeader(
+      "Wallet",
+      "Manage your Taska balance"
+    )}
+
+
+    <div class="wallet-card">
+
+      <div class="wallet-label">
+        Available Balance
+      </div>
+
+
+      <div class="wallet-balance">
+        ${formatMoney(balance)}
+      </div>
+
+
+      <button
+        class="primary-action"
+        id="walletWithdraw"
+        type="button"
+      >
+
+        ${icon("wallet")}
+
+        Withdraw
+
+      </button>
+
+    </div>
+
+  `;
+
+}
+
+
+// ======================================================
+// PROFILE
+// ======================================================
+
+function profilePage() {
+
+  const user =
+    getCurrentUser();
+
+
+  const name =
+    [
+      user?.first_name,
+      user?.last_name
+    ]
+      .filter(Boolean)
+      .join(" ")
+    ||
+    "Taska User";
+
+
+  const username =
+    user?.username
+      ? `@${user.username}`
+      : "No username";
+
+
+  const photo =
+    getPhoto();
+
+
+  const avatar =
+    photo
+      ? `
+        <img
+          src="${escapeHTML(photo)}"
+          alt="Profile"
+        >
+      `
+      : "T";
+
+
+  return `
+
+    ${pageHeader(
+      "Profile",
+      "Manage your Taska account"
+    )}
+
+
+    <div class="profile-card">
+
+      <div class="profile-avatar">
+        ${avatar}
+      </div>
+
+
+      <h2>
+        ${escapeHTML(name)}
+      </h2>
+
+
+      <p>
+        ${escapeHTML(username)}
+      </p>
+
+    </div>
+
+
+    <div class="profile-menu">
+
+      <button
+        class="profile-item"
+        data-profile="support"
+        type="button"
+      >
+
+        <span>
+          ${icon("headphones")}
+        </span>
+
+        <div>
+
+          <strong>
+            Help & Support
+          </strong>
+
+          <small>
+            Get help with Taska
+          </small>
+
+        </div>
+
+        <b>
+          ${icon("arrow")}
+        </b>
+
+      </button>
+
+
+      <button
+        class="profile-item"
+        data-profile="settings"
+        type="button"
+      >
+
+        <span>
+          ${icon("settings")}
+        </span>
+
+        <div>
+
+          <strong>
+            Account Settings
+          </strong>
+
+          <small>
+            Manage your preferences
+          </small>
+
+        </div>
+
+        <b>
+          ${icon("arrow")}
+        </b>
+
+      </button>
+
+
+      <button
+        class="profile-item"
+        data-profile="terms"
+        type="button"
+      >
+
+        <span>
+          ${icon("file")}
+        </span>
+
+        <div>
+
+          <strong>
+            Terms & Conditions
+          </strong>
+
+          <small>
+            Taska rules and policies
+          </small>
+
+        </div>
+
+        <b>
+          ${icon("arrow")}
+        </b>
+
+      </button>
+
+
+      <button
+        class="profile-item"
+        data-profile="privacy"
+        type="button"
+      >
+
+        <span>
+          ${icon("shield")}
+        </span>
+
+        <div>
+
+          <strong>
+            Privacy Policy
+          </strong>
+
+          <small>
+            Learn how we protect your data
+          </small>
+
+        </div>
+
+        <b>
+          ${icon("arrow")}
+        </b>
+
+      </button>
+
+
+      <button
+        class="profile-item"
+        data-profile="about"
+        type="button"
+      >
+
+        <span>
+          ${icon("info")}
+        </span>
+
+        <div>
+
+          <strong>
+            About Taska
+          </strong>
+
+          <small>
+            App information
+          </small>
+
+        </div>
+
+        <b>
+          ${icon("arrow")}
+        </b>
+
+      </button>
+
+    </div>
+
+  `;
+
+}
+
+
+// ======================================================
+// LOAD PAGE
+// ======================================================
+
+function loadPage(
+  page
+) {
+
+  if (!app) {
+    return;
+  }
+
+
+  haptic("light");
+
+
+  clearInterval(
+    checkinTimer
+  );
+
+
+  checkinTimer =
+    null;
+
+
+  if (page === "Home") {
+
+    app.innerHTML =
+      initialHomeHTML;
+
+
+    setupUserUI();
+
+
+    if (taskaUser) {
+
+      refreshTaskaBalance(
+        taskaUser.balance
+      );
+
+    }
+
+
+    setupHomeEvents();
+
+    loadHomeStats();
+
+    return;
+
+  }
+
+
+  if (page === "Earn") {
+
+    app.innerHTML =
+      earnPage();
+
+
+    setupEarnEvents();
+
+    return;
+
+  }
+
+
+  if (page === "Checkin") {
+
+    app.innerHTML =
+      dailyCheckinPage();
+
+
+    setupDailyCheckinEvents();
+
+    return;
+
+  }
+
+
+  if (page === "Referral") {
+
+    app.innerHTML =
+      referralPage();
+
+
+    setupReferralEvents();
+
+    return;
+
+  }
+
+
+  if (page === "Wallet") {
+
+    app.innerHTML =
+      walletPage();
+
+
+    setupWalletEvents();
+
+    return;
+
+  }
+
+
+  if (page === "Profile") {
+
+    app.innerHTML =
+      profilePage();
+
+
+    setupProfileEvents();
+
+    return;
+
+  }
+
+}
+
+
+// ======================================================
+// HOME EVENTS
+// ======================================================
+
+function setupHomeEvents() {
+
+  document
+    .querySelectorAll(".quick-card")
+    .forEach(
+      card => {
+
+        card.addEventListener(
+          "click",
+          () => {
+
+            const feature =
+              (
+                card.dataset.feature ||
+                ""
+              ).toLowerCase();
+
+
+            if (
+              feature.includes(
+                "daily check"
+              )
+            ) {
+
+              loadPage(
+                "Checkin"
+              );
+
+              return;
+
+            }
+
+
+            if (
+              feature === "tasks"
+            ) {
+
+              loadPage(
+                "Earn"
+              );
+
+              return;
+
+            }
+
+
+            if (
+              feature === "referral"
+            ) {
+
+              loadPage(
+                "Referral"
+              );
+
+              return;
+
+            }
+
+
+            showToast(
+              `${
+                card.dataset.feature ||
+                "This feature"
+              } will be available soon`
+            );
+
+          }
+        );
+
+      }
+    );
+
+
+  document
+    .querySelectorAll(".feature-banner")
+    .forEach(
+      banner => {
+
+        banner.addEventListener(
+          "click",
+          () => {
+
+            loadPage(
+              "Earn"
+            );
+
+          }
+        );
+
+      }
+    );
+
+
+  document
+    .getElementById(
+      "withdrawBtn"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        showToast(
+          "Withdrawal will be available soon"
+        );
+
+      }
+    );
+
+
+  document
+    .getElementById(
+      "notificationBtn"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        showToast(
+          "No new notifications"
+        );
+
+      }
+    );
+
+
+  document
+    .getElementById(
+      "viewStats"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        showToast(
+          "Detailed statistics will be available soon"
+        );
+
+      }
+    );
+
+
+  document
+    .getElementById(
+      "viewTransactions"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        showToast(
+          "Transaction history will be available soon"
+        );
+
+      }
+    );
+
+
+  document
+    .querySelector(
+      ".balance-eye"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        showToast(
+          "Balance visibility control"
+        );
+
+      }
+    );
+
+}
+
+
+// ======================================================
 // REFERRAL EVENTS
 // ======================================================
 
@@ -4133,59 +3327,32 @@ function setupReferralEvents() {
     getTelegramId();
 
 
-  const referralCode =
-    telegramId ||
-    "YOUR_ID";
-
-
   const referralLink =
     `https://t.me/TaskaEarn_bot?start=${encodeURIComponent(
-      referralCode
+      telegramId || "YOUR_ID"
     )}`;
 
 
-  const copyButton =
-    document.getElementById(
+  document
+    .getElementById(
       "copyReferral"
-    );
-
-
-  if (copyButton) {
-
-    copyButton.addEventListener(
+    )
+    ?.addEventListener(
       "click",
       async () => {
 
         try {
 
-          if (
-            navigator.clipboard
-          ) {
-
-            await navigator.clipboard.writeText(
-              referralLink
-            );
-
-
-            showToast(
-              "Referral link copied"
-            );
-
-          } else {
-
-            showToast(
-              "Copy is not available here"
-            );
-
-          }
-
-        } catch (error) {
-
-          console.error(
-            "Taska: Copy referral error:",
-            error
+          await navigator.clipboard.writeText(
+            referralLink
           );
 
+
+          showToast(
+            "Referral link copied"
+          );
+
+        } catch {
 
           showToast(
             "Unable to copy the link"
@@ -4193,61 +3360,39 @@ function setupReferralEvents() {
 
         }
 
-
-        haptic(
-          "light"
-        );
-
       }
     );
 
-  }
 
-
-  const shareButton =
-    document.getElementById(
+  document
+    .getElementById(
       "shareReferral"
-    );
-
-
-  if (shareButton) {
-
-    shareButton.addEventListener(
+    )
+    ?.addEventListener(
       "click",
       () => {
 
-        const shareURL =
+        const url =
           `https://t.me/share/url?url=${encodeURIComponent(
             referralLink
           )}`;
 
 
-        if (
-          tg?.openTelegramLink
-        ) {
+        if (tg?.openTelegramLink) {
 
-          tg.openTelegramLink(
-            shareURL
-          );
+          tg.openTelegramLink(url);
 
         } else {
 
           window.open(
-            shareURL,
+            url,
             "_blank"
           );
 
         }
 
-
-        haptic(
-          "light"
-        );
-
       }
     );
-
-  }
 
 }
 
@@ -4258,15 +3403,11 @@ function setupReferralEvents() {
 
 function setupWalletEvents() {
 
-  const withdraw =
-    document.getElementById(
+  document
+    .getElementById(
       "walletWithdraw"
-    );
-
-
-  if (withdraw) {
-
-    withdraw.addEventListener(
+    )
+    ?.addEventListener(
       "click",
       () => {
 
@@ -4274,15 +3415,8 @@ function setupWalletEvents() {
           "Withdrawal will be available soon"
         );
 
-
-        haptic(
-          "light"
-        );
-
       }
     );
-
-  }
 
 }
 
@@ -4318,24 +3452,17 @@ function setupProfileEvents() {
       ".profile-item"
     )
     .forEach(
-      (item) => {
+      item => {
 
         item.addEventListener(
           "click",
           () => {
 
-            const type =
-              item.dataset.profile;
-
-
             showToast(
-              messages[type] ||
+              messages[
+                item.dataset.profile
+              ] ||
               "Coming soon"
-            );
-
-
-            haptic(
-              "light"
             );
 
           }
@@ -4358,7 +3485,7 @@ function setupNavigation() {
       ".nav-btn"
     )
     .forEach(
-      (button) => {
+      button => {
 
         button.addEventListener(
           "click",
@@ -4369,13 +3496,10 @@ function setupNavigation() {
                 ".nav-btn"
               )
               .forEach(
-                (btn) => {
-
+                btn =>
                   btn.classList.remove(
                     "active"
-                  );
-
-                }
+                  )
               );
 
 
@@ -4389,15 +3513,11 @@ function setupNavigation() {
 
 
             if (!page) {
-
               return;
-
             }
 
 
-            loadPage(
-              page
-            );
+            loadPage(page);
 
 
             window.scrollTo({
@@ -4415,67 +3535,50 @@ function setupNavigation() {
 
 
 // ======================================================
-// START APP
+// START
 // ======================================================
+
+setupUserUI();
 
 setupNavigation();
 
 setupHomeEvents();
 
+loadHomeStats();
 
-// ======================================================
-// AUTHENTICATE
-// ======================================================
 
 authenticateTaskaUser()
   .then(
-    (authenticatedUser) => {
+    user => {
 
-      if (
-        !authenticatedUser
-      ) {
-
+      if (!user) {
         return;
-
       }
 
 
       setupUserUI();
 
 
-      if (
-        authenticatedUser.balance !==
-        undefined
-      ) {
-
-        refreshTaskaBalance(
-          authenticatedUser.balance
-        );
-
-      }
-
-
-      console.log(
-        "Taska: User account connected to database."
+      refreshTaskaBalance(
+        user.balance
       );
+
+
+      loadHomeStats();
 
     }
   )
   .catch(
-    (error) => {
+    error => {
 
       console.error(
-        "Taska: Authentication startup error:",
+        "Taska startup error:",
         error
       );
 
     }
   );
 
-
-// ======================================================
-// DEBUG
-// ======================================================
 
 console.log(
   "Taska frontend loaded successfully."
