@@ -3,65 +3,63 @@ const http = require("http");
 const crypto = require("crypto");
 const { Pool } = require("pg");
 
+
 // ======================================================
 // CONFIG
 // ======================================================
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const DATABASE_URL = process.env.DATABASE_URL;
+const BOT_TOKEN =
+  process.env.BOT_TOKEN;
+
+const DATABASE_URL =
+  process.env.DATABASE_URL;
+
 
 const WEB_APP_URL =
   "https://frelancershorif.github.io/taska-mini-app/";
 
+
 const PORT =
   process.env.PORT || 10000;
 
+
 // ======================================================
-// TASKA CHECK-IN SETTINGS
-// ======================================================
-//
-// Day 1 = ৳0.10
-// Day 2 = ৳0.20
-// Day 3 = ৳0.30
-// Day 4 = ৳0.40
-// Day 5 = ৳0.50
-// Day 6 = ৳0.60
-// Day 7 = ৳0.70
-//
-// After Day 7:
-// Next day = Day 1 = ৳0.10
-//
-// If user misses one or more days:
-// Next check-in = Day 1 = ৳0.10
-//
+// CHECK-IN SETTINGS
 // ======================================================
 
-const CHECKIN_REWARD_PER_DAY = 0.10;
-const CHECKIN_CYCLE_DAYS = 7;
+const CHECKIN_REWARD_PER_DAY =
+  0.10;
+
+const CHECKIN_CYCLE_DAYS =
+  7;
 
 const DHAKA_TIMEZONE =
   "Asia/Dhaka";
 
 
 // ======================================================
-// ENVIRONMENT CHECK
+// ENVIRONMENT
 // ======================================================
 
 if (!BOT_TOKEN) {
+
   console.error(
     "BOT_TOKEN is missing!"
   );
 
   process.exit(1);
+
 }
 
 
 if (!DATABASE_URL) {
+
   console.error(
     "DATABASE_URL is missing!"
   );
 
   process.exit(1);
+
 }
 
 
@@ -69,32 +67,34 @@ if (!DATABASE_URL) {
 // DATABASE
 // ======================================================
 
-const pool = new Pool({
-  connectionString: DATABASE_URL,
+const pool =
+  new Pool({
 
-  max: 3,
+    connectionString:
+      DATABASE_URL,
 
-  idleTimeoutMillis: 30000,
+    max:
+      3,
 
-  connectionTimeoutMillis: 10000
-});
+    idleTimeoutMillis:
+      30000,
 
+    connectionTimeoutMillis:
+      10000
 
-// ======================================================
-// IMPORTANT
-// Always use Bangladesh time for database date logic.
-// ======================================================
+  });
+
 
 pool.on(
   "connect",
-  (client) => {
+  client => {
 
     client
       .query(
         `SET TIME ZONE '${DHAKA_TIMEZONE}'`
       )
       .catch(
-        (error) => {
+        error => {
 
           console.error(
             "Unable to set database timezone:",
@@ -110,7 +110,7 @@ pool.on(
 
 pool.on(
   "error",
-  (error) => {
+  error => {
 
     console.error(
       "Database pool error:",
@@ -122,10 +122,11 @@ pool.on(
 
 
 // ======================================================
-// CREATE / PREPARE DATABASE TABLES
+// DATABASE INITIALIZATION
 // ======================================================
 
 async function initDatabase() {
+
 
   // ----------------------------------------------------
   // USERS
@@ -133,16 +134,82 @@ async function initDatabase() {
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
+
       telegram_id BIGINT PRIMARY KEY,
+
       username TEXT,
+
       first_name TEXT,
+
       last_name TEXT,
+
       photo_url TEXT,
-      balance NUMERIC(18, 2) NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+
+      balance NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
+
+      total_earned NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
+
+      total_withdrawn NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
+
+      referral_code TEXT,
+
+      is_banned BOOLEAN
+        NOT NULL DEFAULT FALSE,
+
+      created_at TIMESTAMPTZ
+        NOT NULL DEFAULT NOW(),
+
+      updated_at TIMESTAMPTZ
+        NOT NULL DEFAULT NOW(),
+
+      last_login_at TIMESTAMPTZ
+        NOT NULL DEFAULT NOW(),
+
+      last_checkin_at TIMESTAMPTZ
+
     );
+  `);
+
+
+  // ----------------------------------------------------
+  // COMPATIBILITY COLUMNS
+  // ----------------------------------------------------
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS total_earned
+    NUMERIC(18,2) NOT NULL DEFAULT 0;
+  `);
+
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS total_withdrawn
+    NUMERIC(18,2) NOT NULL DEFAULT 0;
+  `);
+
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS referral_code
+    TEXT;
+  `);
+
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS is_banned
+    BOOLEAN NOT NULL DEFAULT FALSE;
+  `);
+
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS last_checkin_at
+    TIMESTAMPTZ;
   `);
 
 
@@ -152,30 +219,31 @@ async function initDatabase() {
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS daily_checkins (
+
       id BIGSERIAL PRIMARY KEY,
 
       telegram_id BIGINT NOT NULL,
 
-      checkin_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      checkin_date DATE NOT NULL
+        DEFAULT CURRENT_DATE,
 
-      reward NUMERIC(18, 2) NOT NULL DEFAULT 0,
+      reward NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
 
-      streak INTEGER NOT NULL DEFAULT 1,
+      streak INTEGER
+        NOT NULL DEFAULT 1,
 
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ
+        NOT NULL DEFAULT NOW()
+
     );
   `);
 
 
-  // ----------------------------------------------------
-  // PREVENT DOUBLE CHECK-IN
-  // One user = one check-in per day
-  // ----------------------------------------------------
-
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS
     daily_checkins_user_date_unique
-    ON daily_checkins (
+    ON daily_checkins(
       telegram_id,
       checkin_date
     );
@@ -183,8 +251,65 @@ async function initDatabase() {
 
 
   // ----------------------------------------------------
-  // TASK COMPLETION UNIQUE INDEX
+  // TASK TABLE
   // ----------------------------------------------------
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+
+      id BIGSERIAL PRIMARY KEY,
+
+      title TEXT NOT NULL,
+
+      description TEXT,
+
+      task_type TEXT
+        NOT NULL DEFAULT 'visit',
+
+      reward NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
+
+      target_url TEXT,
+
+      icon_url TEXT,
+
+      daily_limit INTEGER,
+
+      is_active BOOLEAN
+        NOT NULL DEFAULT TRUE,
+
+      created_at TIMESTAMPTZ
+        NOT NULL DEFAULT NOW()
+
+    );
+  `);
+
+
+  // ----------------------------------------------------
+  // TASK COMPLETIONS
+  // ----------------------------------------------------
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS task_completions (
+
+      id BIGSERIAL PRIMARY KEY,
+
+      task_id BIGINT NOT NULL,
+
+      telegram_id BIGINT NOT NULL,
+
+      reward NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
+
+      status TEXT
+        NOT NULL DEFAULT 'completed',
+
+      created_at TIMESTAMPTZ
+        NOT NULL DEFAULT NOW()
+
+    );
+  `);
+
 
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS
@@ -197,21 +322,55 @@ async function initDatabase() {
 
 
   // ----------------------------------------------------
-  // DEFAULT TEST TASK
+  // TRANSACTIONS
+  // ----------------------------------------------------
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS transactions (
+
+      id BIGSERIAL PRIMARY KEY,
+
+      telegram_id BIGINT NOT NULL,
+
+      type TEXT NOT NULL,
+
+      amount NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
+
+      balance_before NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
+
+      balance_after NUMERIC(18,2)
+        NOT NULL DEFAULT 0,
+
+      reference_id TEXT,
+
+      description TEXT,
+
+      created_at TIMESTAMPTZ
+        NOT NULL DEFAULT NOW()
+
+    );
+  `);
+
+
+  // ----------------------------------------------------
+  // DEFAULT TASK
   // ----------------------------------------------------
 
   await pool.query(`
     INSERT INTO tasks
-      (
-        title,
-        description,
-        task_type,
-        reward,
-        target_url,
-        is_active
-      )
+    (
+      title,
+      description,
+      task_type,
+      reward,
+      target_url,
+      is_active
+    )
 
     SELECT
+
       'Visit Taska Bot (Test)',
 
       'Open the Taska bot, return to the app, then claim the test reward.',
@@ -283,14 +442,14 @@ function telegram(
       const req =
         https.request(
           options,
-          (res) => {
+          res => {
 
             let body = "";
 
 
             res.on(
               "data",
-              (chunk) => {
+              chunk => {
 
                 body += chunk;
 
@@ -341,7 +500,7 @@ function telegram(
 
 
 // ======================================================
-// BOT /START MESSAGE
+// START MESSAGE
 // ======================================================
 
 async function sendStartMessage(
@@ -397,7 +556,7 @@ async function sendStartMessage(
 
 
 // ======================================================
-// PROCESS TELEGRAM UPDATES
+// PROCESS UPDATE
 // ======================================================
 
 async function processUpdate(
@@ -426,14 +585,10 @@ async function processUpdate(
     text.startsWith("/start ")
   ) {
 
-    const firstName =
-      message.from?.first_name ||
-      "there";
-
-
     await sendStartMessage(
       chatId,
-      firstName
+      message.from?.first_name ||
+      "there"
     );
 
   }
@@ -464,8 +619,7 @@ async function startBot() {
           "getUpdates",
           {
 
-            offset:
-              offset,
+            offset,
 
             timeout:
               30,
@@ -521,7 +675,7 @@ async function startBot() {
 
 
       await new Promise(
-        (resolve) =>
+        resolve =>
           setTimeout(
             resolve,
             5000
@@ -536,7 +690,7 @@ async function startBot() {
 
 
 // ======================================================
-// TELEGRAM MINI APP INIT DATA VALIDATION
+// TELEGRAM INIT DATA VALIDATION
 // ======================================================
 
 function validateTelegramInitData(
@@ -549,13 +703,9 @@ function validateTelegramInitData(
   ) {
 
     return {
-
-      valid:
-        false,
-
+      valid: false,
       error:
         "Missing Telegram initData"
-
     };
 
   }
@@ -574,21 +724,15 @@ function validateTelegramInitData(
   if (!receivedHash) {
 
     return {
-
-      valid:
-        false,
-
+      valid: false,
       error:
         "Missing Telegram hash"
-
     };
 
   }
 
 
-  params.delete(
-    "hash"
-  );
+  params.delete("hash");
 
 
   const dataCheckString =
@@ -631,8 +775,7 @@ function validateTelegramInitData(
       .digest("hex");
 
 
-  let hashMatches =
-    false;
+  let hashMatches = false;
 
 
   try {
@@ -664,10 +807,9 @@ function validateTelegramInitData(
 
     }
 
-  } catch (error) {
+  } catch {
 
-    hashMatches =
-      false;
+    hashMatches = false;
 
   }
 
@@ -675,13 +817,9 @@ function validateTelegramInitData(
   if (!hashMatches) {
 
     return {
-
-      valid:
-        false,
-
+      valid: false,
       error:
         "Invalid Telegram authentication data"
-
     };
 
   }
@@ -699,13 +837,9 @@ function validateTelegramInitData(
   ) {
 
     return {
-
-      valid:
-        false,
-
+      valid: false,
       error:
         "Invalid auth_date"
-
     };
 
   }
@@ -723,13 +857,9 @@ function validateTelegramInitData(
   ) {
 
     return {
-
-      valid:
-        false,
-
+      valid: false,
       error:
         "Telegram authentication data expired"
-
     };
 
   }
@@ -742,13 +872,9 @@ function validateTelegramInitData(
   if (!userString) {
 
     return {
-
-      valid:
-        false,
-
+      valid: false,
       error:
         "Telegram user data missing"
-
     };
 
   }
@@ -764,16 +890,12 @@ function validateTelegramInitData(
         userString
       );
 
-  } catch (error) {
+  } catch {
 
     return {
-
-      valid:
-        false,
-
+      valid: false,
       error:
         "Invalid Telegram user data"
-
     };
 
   }
@@ -785,32 +907,24 @@ function validateTelegramInitData(
   ) {
 
     return {
-
-      valid:
-        false,
-
+      valid: false,
       error:
         "Telegram user ID missing"
-
     };
 
   }
 
 
   return {
-
-    valid:
-      true,
-
+    valid: true,
     user
-
   };
 
 }
 
 
 // ======================================================
-// SAVE / UPDATE USER
+// SAVE TELEGRAM USER
 // ======================================================
 
 async function saveTelegramUser(
@@ -826,7 +940,8 @@ async function saveTelegramUser(
   const result =
     await pool.query(
       `
-      INSERT INTO users (
+      INSERT INTO users
+      (
         telegram_id,
         username,
         first_name,
@@ -837,7 +952,8 @@ async function saveTelegramUser(
         updated_at
       )
 
-      VALUES (
+      VALUES
+      (
         $1::BIGINT,
         $2::TEXT,
         $3::TEXT,
@@ -888,9 +1004,13 @@ async function saveTelegramUser(
         last_name,
         photo_url,
         balance,
+        total_earned,
+        total_withdrawn,
+        referral_code,
         created_at,
-        last_login_at;
+        last_login_at
       `,
+
       [
 
         telegramId,
@@ -917,7 +1037,7 @@ async function saveTelegramUser(
 
 
 // ======================================================
-// JSON RESPONSE
+// JSON
 // ======================================================
 
 function sendJSON(
@@ -925,12 +1045,6 @@ function sendJSON(
   statusCode,
   data
 ) {
-
-  const body =
-    JSON.stringify(
-      data
-    );
-
 
   res.writeHead(
     statusCode,
@@ -953,14 +1067,14 @@ function sendJSON(
 
 
   res.end(
-    body
+    JSON.stringify(data)
   );
 
 }
 
 
 // ======================================================
-// READ REQUEST BODY
+// READ BODY
 // ======================================================
 
 function readBody(
@@ -975,7 +1089,7 @@ function readBody(
 
       req.on(
         "data",
-        (chunk) => {
+        chunk => {
 
           body += chunk;
 
@@ -1004,9 +1118,7 @@ function readBody(
         "end",
         () => {
 
-          resolve(
-            body
-          );
+          resolve(body);
 
         }
       );
@@ -1024,7 +1136,7 @@ function readBody(
 
 
 // ======================================================
-// AUTHENTICATED API HELPERS
+// AUTHENTICATED USER
 // ======================================================
 
 async function getAuthenticatedUserFromBody(
@@ -1041,11 +1153,9 @@ async function getAuthenticatedUserFromBody(
 
     return {
 
-      ok:
-        false,
+      ok: false,
 
-      status:
-        401,
+      status: 401,
 
       error:
         validation.error
@@ -1065,23 +1175,36 @@ async function getAuthenticatedUserFromBody(
     await pool.query(
       `
       SELECT
+
         telegram_id,
+
         username,
+
         first_name,
+
         last_name,
+
         photo_url,
+
         balance,
+
         total_earned,
+
         total_withdrawn,
+
         referral_code,
+
         is_banned,
+
         created_at,
+
         last_login_at
 
       FROM users
 
       WHERE telegram_id = $1
       `,
+
       [
         telegramId
       ]
@@ -1092,11 +1215,9 @@ async function getAuthenticatedUserFromBody(
 
     return {
 
-      ok:
-        false,
+      ok: false,
 
-      status:
-        404,
+      status: 404,
 
       error:
         "Taska user account not found"
@@ -1112,11 +1233,9 @@ async function getAuthenticatedUserFromBody(
 
     return {
 
-      ok:
-        false,
+      ok: false,
 
-      status:
-        403,
+      status: 403,
 
       error:
         "This Taska account is restricted"
@@ -1128,67 +1247,10 @@ async function getAuthenticatedUserFromBody(
 
   return {
 
-    ok:
-      true,
+    ok: true,
 
     user:
       result.rows[0]
-
-  };
-
-}
-
-
-// ======================================================
-// PUBLIC USER
-// ======================================================
-
-function publicUser(
-  row
-) {
-
-  return {
-
-    telegram_id:
-      String(
-        row.telegram_id
-      ),
-
-    username:
-      row.username,
-
-    first_name:
-      row.first_name,
-
-    last_name:
-      row.last_name,
-
-    photo_url:
-      row.photo_url,
-
-    balance:
-      Number(
-        row.balance || 0
-      ),
-
-    total_earned:
-      Number(
-        row.total_earned || 0
-      ),
-
-    total_withdrawn:
-      Number(
-        row.total_withdrawn || 0
-      ),
-
-    referral_code:
-      row.referral_code,
-
-    created_at:
-      row.created_at,
-
-    last_login_at:
-      row.last_login_at
 
   };
 
@@ -1212,9 +1274,13 @@ async function awardBalance(
     await client.query(
       `
       SELECT
+
         telegram_id,
+
         balance,
+
         total_earned,
+
         total_withdrawn
 
       FROM users
@@ -1223,6 +1289,7 @@ async function awardBalance(
 
       FOR UPDATE
       `,
+
       [
         telegramId
       ]
@@ -1249,9 +1316,7 @@ async function awardBalance(
 
 
   const reward =
-    Number(
-      amount
-    );
+    Number(amount);
 
 
   const after =
@@ -1268,6 +1333,7 @@ async function awardBalance(
     UPDATE users
 
     SET
+
       balance = $1,
 
       total_earned =
@@ -1278,14 +1344,11 @@ async function awardBalance(
 
     WHERE telegram_id = $3
     `,
+
     [
-
       after,
-
       reward,
-
       telegramId
-
     ]
   );
 
@@ -1314,6 +1377,7 @@ async function awardBalance(
       $7
     )
     `,
+
     [
 
       telegramId,
@@ -1348,34 +1412,15 @@ async function awardBalance(
 
 
 // ======================================================
-// CHECK-IN HELPERS
+// CHECK-IN STREAK
 // ======================================================
-
-// ------------------------------------------------------
-// Calculate next streak.
-//
-// Rules:
-//
-// Today already claimed:
-//     current streak stays.
-//
-// Last claim was yesterday:
-//     streak + 1
-//
-// Last claim was older than yesterday:
-//     Day 1
-//
-// Day 7 -> next day Day 1
-// ------------------------------------------------------
 
 function calculateNextStreak(
   previousRow
 ) {
 
   if (!previousRow) {
-
     return 1;
-
   }
 
 
@@ -1391,10 +1436,7 @@ function calculateNextStreak(
     );
 
 
-  // Yesterday
-  if (
-    daysSince === 1
-  ) {
+  if (daysSince === 1) {
 
     if (
       previousStreak <
@@ -1408,50 +1450,51 @@ function calculateNextStreak(
     }
 
 
-    // Day 7 completed.
-    // Next day starts Day 1.
-
     return 1;
 
   }
 
 
-  // Missed one or more days.
   return 1;
 
 }
 
 
-// ------------------------------------------------------
-// Check-in status
-// ------------------------------------------------------
+// ======================================================
+// CHECK-IN STATUS
+// ======================================================
 
 async function getCheckinStatus(
   telegramId
 ) {
 
-  // ----------------------------------------------------
-  // Today's check-in
-  // ----------------------------------------------------
-
   const todayResult =
     await pool.query(
       `
       SELECT
+
         id,
+
         checkin_date,
+
         reward,
+
         streak
 
       FROM daily_checkins
 
       WHERE
+
         telegram_id = $1
+
         AND
-        checkin_date = CURRENT_DATE
+
+        checkin_date =
+          CURRENT_DATE
 
       LIMIT 1
       `,
+
       [
         telegramId
       ]
@@ -1464,16 +1507,15 @@ async function getCheckinStatus(
     );
 
 
-  // ----------------------------------------------------
-  // Last check-in
-  // ----------------------------------------------------
-
   const previousResult =
     await pool.query(
       `
       SELECT
+
         checkin_date,
+
         reward,
+
         streak,
 
         (
@@ -1490,6 +1532,7 @@ async function getCheckinStatus(
 
       LIMIT 1
       `,
+
       [
         telegramId
       ]
@@ -1501,24 +1544,16 @@ async function getCheckinStatus(
     null;
 
 
-  let nextStreak = 1;
+  const nextStreak =
+    todayClaimed
 
+      ? Number(
+          todayResult.rows[0].streak
+        )
 
-  if (todayClaimed) {
-
-    nextStreak =
-      Number(
-        todayResult.rows[0].streak
-      );
-
-  } else {
-
-    nextStreak =
-      calculateNextStreak(
-        previous
-      );
-
-  }
+      : calculateNextStreak(
+          previous
+        );
 
 
   const nextReward =
@@ -1530,16 +1565,15 @@ async function getCheckinStatus(
     );
 
 
-  // ----------------------------------------------------
-  // Last 7 check-ins
-  // ----------------------------------------------------
-
   const historyResult =
     await pool.query(
       `
       SELECT
+
         checkin_date,
+
         reward,
+
         streak
 
       FROM daily_checkins
@@ -1551,20 +1585,18 @@ async function getCheckinStatus(
 
       LIMIT 7
       `,
+
       [
         telegramId
       ]
     );
 
 
-  // ----------------------------------------------------
-  // Next midnight in Bangladesh time
-  // ----------------------------------------------------
-
   const nextCheckinResult =
     await pool.query(
       `
       SELECT
+
         (
           (
             CURRENT_DATE + 1
@@ -1614,7 +1646,7 @@ async function getCheckinStatus(
 
     history:
       historyResult.rows.map(
-        (row) => ({
+        row => ({
 
           checkin_date:
             row.checkin_date,
@@ -1643,16 +1675,21 @@ async function getCheckinStatus(
 
 const server =
   http.createServer(
-    async (req, res) => {
+    async (
+      req,
+      res
+    ) => {
 
       try {
+
 
         // ==================================================
         // CORS
         // ==================================================
 
         if (
-          req.method === "OPTIONS"
+          req.method ===
+          "OPTIONS"
         ) {
 
           res.writeHead(
@@ -1674,7 +1711,6 @@ const server =
 
           res.end();
 
-
           return;
 
         }
@@ -1692,10 +1728,8 @@ const server =
           res.writeHead(
             200,
             {
-
               "Content-Type":
                 "text/plain; charset=utf-8"
-
             }
           );
 
@@ -1729,8 +1763,7 @@ const server =
             200,
             {
 
-              ok:
-                true,
+              ok: true,
 
               database:
                 "connected",
@@ -1751,7 +1784,7 @@ const server =
 
 
         // ==================================================
-        // USER AUTH
+        // /api/me
         // ==================================================
 
         if (
@@ -1760,9 +1793,7 @@ const server =
         ) {
 
           const rawBody =
-            await readBody(
-              req
-            );
+            await readBody(req);
 
 
           let body;
@@ -1781,16 +1812,11 @@ const server =
               res,
               400,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   "Invalid JSON"
-
               }
             );
-
 
             return;
 
@@ -1812,8 +1838,7 @@ const server =
               401,
               {
 
-                ok:
-                  false,
+                ok: false,
 
                 error:
                   validation.error
@@ -1821,19 +1846,14 @@ const server =
               }
             );
 
-
             return;
 
           }
 
 
-          const user =
-            validation.user;
-
-
           const savedUser =
             await saveTelegramUser(
-              user
+              validation.user
             );
 
 
@@ -1842,41 +1862,294 @@ const server =
             200,
             {
 
-              ok:
-                true,
+              ok: true,
 
-              user:
-                {
+              user: {
 
-                  telegram_id:
-                    String(
-                      savedUser.telegram_id
-                    ),
+                telegram_id:
+                  String(
+                    savedUser.telegram_id
+                  ),
 
-                  username:
-                    savedUser.username,
+                username:
+                  savedUser.username,
 
-                  first_name:
-                    savedUser.first_name,
+                first_name:
+                  savedUser.first_name,
 
-                  last_name:
-                    savedUser.last_name,
+                last_name:
+                  savedUser.last_name,
 
-                  photo_url:
-                    savedUser.photo_url,
+                photo_url:
+                  savedUser.photo_url,
 
-                  balance:
-                    Number(
-                      savedUser.balance
-                    ),
+                balance:
+                  Number(
+                    savedUser.balance || 0
+                  ),
 
-                  created_at:
-                    savedUser.created_at,
+                total_earned:
+                  Number(
+                    savedUser.total_earned || 0
+                  ),
 
-                  last_login_at:
-                    savedUser.last_login_at
+                total_withdrawn:
+                  Number(
+                    savedUser.total_withdrawn || 0
+                  ),
 
-                }
+                created_at:
+                  savedUser.created_at,
+
+                last_login_at:
+                  savedUser.last_login_at
+
+              }
+
+            }
+          );
+
+
+          return;
+
+        }
+
+
+        // ==================================================
+        // REAL HOME STATISTICS
+        // ==================================================
+
+        if (
+          req.method === "POST" &&
+          req.url === "/api/stats"
+        ) {
+
+          const rawBody =
+            await readBody(req);
+
+
+          let body;
+
+
+          try {
+
+            body =
+              JSON.parse(
+                rawBody
+              );
+
+          } catch {
+
+            sendJSON(
+              res,
+              400,
+              {
+                ok: false,
+                error:
+                  "Invalid JSON"
+              }
+            );
+
+            return;
+
+          }
+
+
+          const auth =
+            await getAuthenticatedUserFromBody(
+              body
+            );
+
+
+          if (!auth.ok) {
+
+            sendJSON(
+              res,
+              auth.status,
+              {
+
+                ok: false,
+
+                error:
+                  auth.error
+
+              }
+            );
+
+            return;
+
+          }
+
+
+          const telegramId =
+            String(
+              auth.user.telegram_id
+            );
+
+
+          // ----------------------------------------------
+          // USER TOTALS
+          // ----------------------------------------------
+
+          const userResult =
+            await pool.query(
+              `
+              SELECT
+
+                balance,
+
+                total_earned,
+
+                total_withdrawn
+
+              FROM users
+
+              WHERE telegram_id = $1
+
+              LIMIT 1
+              `,
+
+              [
+                telegramId
+              ]
+            );
+
+
+          const user =
+            userResult.rows[0] ||
+            {};
+
+
+          // ----------------------------------------------
+          // TASKS COMPLETED
+          // ----------------------------------------------
+
+          const taskResult =
+            await pool.query(
+              `
+              SELECT
+                COUNT(*)::INTEGER
+                AS tasks_completed
+
+              FROM task_completions
+
+              WHERE
+                telegram_id = $1
+
+                AND
+
+                status =
+                  'completed'
+              `,
+
+              [
+                telegramId
+              ]
+            );
+
+
+          const tasksCompleted =
+            Number(
+              taskResult.rows[0]
+                ?.tasks_completed ||
+              0
+            );
+
+
+          // ----------------------------------------------
+          // TODAY'S EARNINGS
+          // ----------------------------------------------
+
+          const todayResult =
+            await pool.query(
+              `
+              SELECT
+
+                COALESCE(
+                  SUM(amount),
+                  0
+                ) AS today_earned
+
+              FROM transactions
+
+              WHERE
+
+                telegram_id = $1
+
+                AND
+
+                amount > 0
+
+                AND
+
+                created_at >=
+                  CURRENT_DATE
+
+                AND
+
+                created_at <
+                  CURRENT_DATE + INTERVAL '1 day'
+              `,
+
+              [
+                telegramId
+              ]
+            );
+
+
+          const todayEarned =
+            Number(
+              todayResult.rows[0]
+                ?.today_earned ||
+              0
+            );
+
+
+          // ----------------------------------------------
+          // REFERRALS
+          //
+          // Current Taska database does not yet have
+          // a dedicated referral relationship table.
+          //
+          // Therefore we DO NOT invent a number.
+          // It remains 0 until referral tracking is added.
+          // ----------------------------------------------
+
+          let referrals = 0;
+
+
+          // ----------------------------------------------
+          // RESPONSE
+          // ----------------------------------------------
+
+          sendJSON(
+            res,
+            200,
+            {
+
+              ok: true,
+
+              stats: {
+
+                total_earned:
+                  Number(
+                    user.total_earned || 0
+                  ),
+
+                referrals,
+
+                tasks_completed:
+                  tasksCompleted,
+
+                total_withdrawn:
+                  Number(
+                    user.total_withdrawn || 0
+                  ),
+
+                today_earned:
+                  todayEarned
+
+              }
 
             }
           );
@@ -1897,9 +2170,7 @@ const server =
         ) {
 
           const rawBody =
-            await readBody(
-              req
-            );
+            await readBody(req);
 
 
           let body;
@@ -1918,16 +2189,11 @@ const server =
               res,
               400,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   "Invalid JSON"
-
               }
             );
-
 
             return;
 
@@ -1946,16 +2212,11 @@ const server =
               res,
               auth.status,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   auth.error
-
               }
             );
-
 
             return;
 
@@ -1966,21 +2227,31 @@ const server =
             await pool.query(
               `
               SELECT
+
                 t.id,
+
                 t.title,
+
                 t.description,
+
                 t.task_type,
+
                 t.reward,
+
                 t.target_url,
+
                 t.icon_url,
+
                 t.daily_limit,
 
                 EXISTS (
+
                   SELECT 1
 
                   FROM task_completions tc
 
                   WHERE
+
                     tc.task_id =
                       t.id
 
@@ -2002,9 +2273,12 @@ const server =
                 t.is_active = TRUE
 
               ORDER BY
+
                 t.created_at DESC,
+
                 t.id DESC
               `,
+
               [
                 String(
                   auth.user.telegram_id
@@ -2018,12 +2292,11 @@ const server =
             200,
             {
 
-              ok:
-                true,
+              ok: true,
 
               tasks:
                 result.rows.map(
-                  (task) => ({
+                  task => ({
 
                     id:
                       Number(
@@ -2081,9 +2354,7 @@ const server =
         ) {
 
           const rawBody =
-            await readBody(
-              req
-            );
+            await readBody(req);
 
 
           let body;
@@ -2102,16 +2373,11 @@ const server =
               res,
               400,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   "Invalid JSON"
-
               }
             );
-
 
             return;
 
@@ -2130,16 +2396,11 @@ const server =
               res,
               auth.status,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   auth.error
-
               }
             );
-
 
             return;
 
@@ -2153,9 +2414,7 @@ const server =
 
 
           if (
-            !Number.isInteger(
-              taskId
-            ) ||
+            !Number.isInteger(taskId) ||
             taskId <= 0
           ) {
 
@@ -2163,16 +2422,11 @@ const server =
               res,
               400,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   "Invalid task ID"
-
               }
             );
-
 
             return;
 
@@ -2194,9 +2448,13 @@ const server =
               await client.query(
                 `
                 SELECT
+
                   id,
+
                   title,
+
                   reward,
+
                   is_active
 
                 FROM tasks
@@ -2205,6 +2463,7 @@ const server =
 
                 FOR UPDATE
                 `,
+
                 [
                   taskId
                 ]
@@ -2213,8 +2472,7 @@ const server =
 
             if (
               !taskResult.rows[0] ||
-              !taskResult.rows[0]
-                .is_active
+              !taskResult.rows[0].is_active
             ) {
 
               await client.query(
@@ -2226,16 +2484,11 @@ const server =
                 res,
                 404,
                 {
-
-                  ok:
-                    false,
-
+                  ok: false,
                   error:
                     "Task not available"
-
                 }
               );
-
 
               return;
 
@@ -2260,6 +2513,7 @@ const server =
                 FROM task_completions
 
                 WHERE
+
                   task_id = $1
 
                   AND
@@ -2268,12 +2522,10 @@ const server =
 
                 LIMIT 1
                 `,
+
                 [
-
                   taskId,
-
                   telegramId
-
                 ]
               );
 
@@ -2291,16 +2543,11 @@ const server =
                 res,
                 409,
                 {
-
-                  ok:
-                    false,
-
+                  ok: false,
                   error:
                     "This task has already been completed"
-
                 }
               );
-
 
               return;
 
@@ -2313,9 +2560,7 @@ const server =
               );
 
 
-            if (
-              reward <= 0
-            ) {
+            if (reward <= 0) {
 
               await client.query(
                 "ROLLBACK"
@@ -2326,16 +2571,11 @@ const server =
                 res,
                 400,
                 {
-
-                  ok:
-                    false,
-
+                  ok: false,
                   error:
                     "Task reward is not configured"
-
                 }
               );
-
 
               return;
 
@@ -2360,14 +2600,11 @@ const server =
                 'completed'
               )
               `,
+
               [
-
                 taskId,
-
                 telegramId,
-
                 reward
-
               ]
             );
 
@@ -2378,9 +2615,7 @@ const server =
                 telegramId,
                 reward,
                 "task_reward",
-                String(
-                  taskId
-                ),
+                String(taskId),
                 `Reward for completing: ${task.title}`
               );
 
@@ -2395,8 +2630,7 @@ const server =
               200,
               {
 
-                ok:
-                  true,
+                ok: true,
 
                 message:
                   "Task completed successfully",
@@ -2433,16 +2667,11 @@ const server =
                 res,
                 409,
                 {
-
-                  ok:
-                    false,
-
+                  ok: false,
                   error:
                     "This task has already been completed"
-
                 }
               );
-
 
               return;
 
@@ -2461,12 +2690,7 @@ const server =
 
 
         // ==================================================
-        // DAILY CHECK-IN STATUS
-        // ==================================================
-        //
-        // Frontend can call this when opening the
-        // Daily Check-in page.
-        //
+        // CHECK-IN STATUS
         // ==================================================
 
         if (
@@ -2476,9 +2700,7 @@ const server =
         ) {
 
           const rawBody =
-            await readBody(
-              req
-            );
+            await readBody(req);
 
 
           let body;
@@ -2497,16 +2719,11 @@ const server =
               res,
               400,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   "Invalid JSON"
-
               }
             );
-
 
             return;
 
@@ -2525,31 +2742,22 @@ const server =
               res,
               auth.status,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   auth.error
-
               }
             );
-
 
             return;
 
           }
 
 
-          const telegramId =
-            String(
-              auth.user.telegram_id
-            );
-
-
           const status =
             await getCheckinStatus(
-              telegramId
+              String(
+                auth.user.telegram_id
+              )
             );
 
 
@@ -2558,8 +2766,7 @@ const server =
             200,
             {
 
-              ok:
-                true,
+              ok: true,
 
               ...status
 
@@ -2573,7 +2780,7 @@ const server =
 
 
         // ==================================================
-        // DAILY CHECK-IN CLAIM
+        // CHECK-IN CLAIM
         // ==================================================
 
         if (
@@ -2583,9 +2790,7 @@ const server =
         ) {
 
           const rawBody =
-            await readBody(
-              req
-            );
+            await readBody(req);
 
 
           let body;
@@ -2604,16 +2809,11 @@ const server =
               res,
               400,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   "Invalid JSON"
-
               }
             );
-
 
             return;
 
@@ -2632,16 +2832,11 @@ const server =
               res,
               auth.status,
               {
-
-                ok:
-                  false,
-
+                ok: false,
                 error:
                   auth.error
-
               }
             );
-
 
             return;
 
@@ -2665,22 +2860,23 @@ const server =
             );
 
 
-            // ------------------------------------------
-            // TODAY'S CHECK-IN
-            // ------------------------------------------
-
             const existing =
               await client.query(
                 `
                 SELECT
+
                   id,
+
                   reward,
+
                   streak,
+
                   checkin_date
 
                 FROM daily_checkins
 
                 WHERE
+
                   telegram_id = $1
 
                   AND
@@ -2692,15 +2888,12 @@ const server =
 
                 FOR UPDATE
                 `,
+
                 [
                   telegramId
                 ]
               );
 
-
-            // ------------------------------------------
-            // ALREADY CLAIMED TODAY
-            // ------------------------------------------
 
             if (
               existing.rows[0]
@@ -2716,8 +2909,7 @@ const server =
                 409,
                 {
 
-                  ok:
-                    false,
+                  ok: false,
 
                   error:
                     "Daily check-in already claimed today",
@@ -2744,15 +2936,13 @@ const server =
             }
 
 
-            // ------------------------------------------
-            // GET PREVIOUS CHECK-IN
-            // ------------------------------------------
-
             const previous =
               await client.query(
                 `
                 SELECT
+
                   streak,
+
                   checkin_date,
 
                   (
@@ -2770,41 +2960,19 @@ const server =
 
                 LIMIT 1
                 `,
+
                 [
                   telegramId
                 ]
               );
 
 
-            const previousRow =
-              previous.rows[0] ||
-              null;
-
-
-            // ------------------------------------------
-            // CALCULATE STREAK
-            // ------------------------------------------
-
             const streak =
               calculateNextStreak(
-                previousRow
+                previous.rows[0] ||
+                null
               );
 
-
-            // ------------------------------------------
-            // CALCULATE REWARD
-            // ------------------------------------------
-            //
-            // Day 1 = 0.10
-            // Day 2 = 0.20
-            // Day 3 = 0.30
-            // Day 4 = 0.40
-            // Day 5 = 0.50
-            // Day 6 = 0.60
-            // Day 7 = 0.70
-            //
-            // Then back to Day 1.
-            // ------------------------------------------
 
             const reward =
               Number(
@@ -2814,10 +2982,6 @@ const server =
                 ).toFixed(2)
               );
 
-
-            // ------------------------------------------
-            // SAVE CHECK-IN
-            // ------------------------------------------
 
             await client.query(
               `
@@ -2837,21 +3001,14 @@ const server =
                 $3
               )
               `,
+
               [
-
                 telegramId,
-
                 reward,
-
                 streak
-
               ]
             );
 
-
-            // ------------------------------------------
-            // ADD REWARD TO BALANCE
-            // ------------------------------------------
 
             const balance =
               await awardBalance(
@@ -2859,51 +3016,38 @@ const server =
                 telegramId,
                 reward,
                 "daily_checkin",
-
                 `checkin-${new Date()
                   .toISOString()
                   .slice(0, 10)}`,
-
                 `Daily check-in reward - Day ${streak}`
               );
 
-
-            // ------------------------------------------
-            // UPDATE USER
-            // ------------------------------------------
 
             await client.query(
               `
               UPDATE users
 
               SET
+
                 last_checkin_at =
                   NOW(),
 
                 updated_at =
                   NOW()
 
-              WHERE
-                telegram_id = $1
+              WHERE telegram_id = $1
               `,
+
               [
                 telegramId
               ]
             );
 
 
-            // ------------------------------------------
-            // COMMIT
-            // ------------------------------------------
-
             await client.query(
               "COMMIT"
             );
 
-
-            // ------------------------------------------
-            // GET FRESH STATUS
-            // ------------------------------------------
 
             const freshStatus =
               await getCheckinStatus(
@@ -2911,17 +3055,12 @@ const server =
               );
 
 
-            // ------------------------------------------
-            // SUCCESS RESPONSE
-            // ------------------------------------------
-
             sendJSON(
               res,
               200,
               {
 
-                ok:
-                  true,
+                ok: true,
 
                 message:
                   "Daily check-in claimed successfully",
@@ -2932,8 +3071,7 @@ const server =
                 balance:
                   balance.after,
 
-                streak:
-                  streak,
+                streak,
 
                 today_claimed:
                   true,
@@ -2962,7 +3100,6 @@ const server =
 
             return;
 
-
           } catch (error) {
 
             try {
@@ -2974,10 +3111,6 @@ const server =
             } catch {}
 
 
-            // ------------------------------------------
-            // UNIQUE CONSTRAINT
-            // ------------------------------------------
-
             if (
               error.code ===
               "23505"
@@ -2988,8 +3121,7 @@ const server =
                 409,
                 {
 
-                  ok:
-                    false,
+                  ok: false,
 
                   error:
                     "Daily check-in already claimed today",
@@ -3007,7 +3139,6 @@ const server =
 
 
             throw error;
-
 
           } finally {
 
@@ -3027,8 +3158,7 @@ const server =
           404,
           {
 
-            ok:
-              false,
+            ok: false,
 
             error:
               "Not Found"
@@ -3050,8 +3180,7 @@ const server =
           500,
           {
 
-            ok:
-              false,
+            ok: false,
 
             error:
               "Internal server error"
@@ -3066,7 +3195,7 @@ const server =
 
 
 // ======================================================
-// START SERVER + DATABASE
+// START SERVER
 // ======================================================
 
 async function startServer() {
@@ -3089,6 +3218,10 @@ async function startServer() {
         );
 
         console.log(
+          "Taska statistics API: enabled"
+        );
+
+        console.log(
           "Daily Check-in system: 7-day cycle"
         );
 
@@ -3097,7 +3230,6 @@ async function startServer() {
 
 
     startBot();
-
 
   } catch (error) {
 
