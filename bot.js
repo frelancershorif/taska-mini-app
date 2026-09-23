@@ -146,6 +146,22 @@ async function initDatabase() {
   `);
 
 
+// ----------------------------------------------------
+  // REFERRAL TRACKING
+  // ----------------------------------------------------
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS referred_by BIGINT;
+  `);
+
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS
+    users_referred_by_index
+    ON users(referred_by);
+  `);
+
   // ----------------------------------------------------
   // DAILY CHECK-INS
   // ----------------------------------------------------
@@ -421,22 +437,69 @@ async function processUpdate(
     message.text || "";
 
 
+ if (
+  text === "/start" ||
+  text.startsWith("/start ")
+) {
+
+  const firstName =
+    message.from?.first_name ||
+    "there";
+
+
+  // -----------------------------------------------
+  // REFERRAL PAYLOAD
+  // Example:
+  // /start 1949689268
+  // -----------------------------------------------
+
+  let referredById = null;
+
+
   if (
-    text === "/start" ||
     text.startsWith("/start ")
   ) {
 
-    const firstName =
-      message.from?.first_name ||
-      "there";
+    const payload =
+      text
+        .slice(7)
+        .trim();
 
 
-    await sendStartMessage(
-      chatId,
-      firstName
+    if (
+      /^\d+$/.test(payload)
+    ) {
+
+      referredById =
+        payload;
+
+    }
+
+  }
+
+
+  // -----------------------------------------------
+  // SAVE USER + REFERRAL
+  // -----------------------------------------------
+
+  if (
+    message.from?.id
+  ) {
+
+    await saveTelegramUser(
+      message.from,
+      referredById
     );
 
   }
+
+
+  await sendStartMessage(
+    chatId,
+    firstName
+  );
+
+} 
 
 }
 
@@ -814,7 +877,8 @@ function validateTelegramInitData(
 // ======================================================
 
 async function saveTelegramUser(
-  user
+  user,
+  referredById = null
 ) {
 
   const telegramId =
@@ -832,9 +896,10 @@ async function saveTelegramUser(
         first_name,
         last_name,
         photo_url,
-        referral_code,
-        last_login_at,
-        updated_at
+					 referral_code,
+ 						referred_by,
+ 						last_login_at,
+ 						updated_at
       )
 
       VALUES (
@@ -842,22 +907,37 @@ async function saveTelegramUser(
         $2::TEXT,
         $3::TEXT,
         $4::TEXT,
-        $5::TEXT,
+       $5::TEXT,
 
-        UPPER(
-          SUBSTRING(
-            MD5(
-              $1::TEXT ||
-              RANDOM()::TEXT
-            ),
-            1,
-            8
-          )
-        ),
+UPPER(
+  SUBSTRING(
+    MD5(
+      $1::TEXT ||
+      RANDOM()::TEXT
+    ),
+    1,
+    8
+  )
+),
 
-        NOW(),
-        NOW()
-      )
+CASE
+  WHEN
+    $6::BIGINT IS NOT NULL
+    AND
+    $6::BIGINT <> $1::BIGINT
+    AND
+    EXISTS (
+      SELECT 1
+      FROM users
+      WHERE telegram_id = $6::BIGINT
+    )
+  THEN $6::BIGINT
+  ELSE NULL
+END,
+
+NOW(),
+NOW()
+)
 
       ON CONFLICT (telegram_id)
 
@@ -882,14 +962,17 @@ async function saveTelegramUser(
           NOW()
 
       RETURNING
-        telegram_id,
-        username,
-        first_name,
-        last_name,
-        photo_url,
-        balance,
-        created_at,
-        last_login_at;
+		   telegram_id,
+ 			  username,
+ 			  first_name,
+ 			  last_name,
+ 			  photo_url,
+ 			  balance,
+ 			  total_earned,
+ 			  total_withdrawn,
+ 			  referred_by,
+ 			  created_at,
+  			 last_login_at;
       `,
       [
 
@@ -905,7 +988,11 @@ async function saveTelegramUser(
           null,
 
         user.photo_url ||
-          null
+  null,
+
+					 referredById
+  ? String(referredById)
+  : null
 
       ]
     );
@@ -1835,8 +1922,41 @@ const server =
             await saveTelegramUser(
               user
             );
+ 
+ 				// ==================================================
+          // HOME STATISTICS
+          // ==================================================
+
+          const statisticsResult =
+            await pool.query(
+              `
+              SELECT
+
+                (
+                  SELECT COUNT(*)
+                  FROM users
+                  WHERE referred_by = $1::BIGINT
+                ) AS referrals_count,
+
+                (
+                  SELECT COUNT(*)
+                  FROM task_completions
+                  WHERE
+                    telegram_id = $1::BIGINT
+                    AND status = 'completed'
+                ) AS tasks_completed
+              `,
+              [
+                String(
+                  savedUser.telegram_id
+                )
+              ]
+            );
 
 
+          const statistics =
+            statisticsResult.rows[0];
+						
           sendJSON(
             res,
             200,
@@ -1846,37 +1966,57 @@ const server =
                 true,
 
               user:
-                {
+  {
 
-                  telegram_id:
-                    String(
-                      savedUser.telegram_id
-                    ),
+    telegram_id:
+      String(
+        savedUser.telegram_id
+      ),
 
-                  username:
-                    savedUser.username,
+    username:
+      savedUser.username,
 
-                  first_name:
-                    savedUser.first_name,
+    first_name:
+      savedUser.first_name,
 
-                  last_name:
-                    savedUser.last_name,
+    last_name:
+      savedUser.last_name,
 
-                  photo_url:
-                    savedUser.photo_url,
+    photo_url:
+      savedUser.photo_url,
 
-                  balance:
-                    Number(
-                      savedUser.balance
-                    ),
+    balance:
+      Number(
+        savedUser.balance || 0
+      ),
 
-                  created_at:
-                    savedUser.created_at,
+    total_earned:
+      Number(
+        savedUser.total_earned || 0
+      ),
 
-                  last_login_at:
-                    savedUser.last_login_at
+    total_withdrawn:
+      Number(
+        savedUser.total_withdrawn || 0
+      ),
 
-                }
+    referrals_count:
+      Number(
+        statistics.referrals_count || 0
+      ),
+
+    tasks_completed:
+      Number(
+        statistics.tasks_completed || 0
+      ),
+
+    created_at:
+      savedUser.created_at,
+
+    last_login_at:
+      savedUser.last_login_at
+
+  }
 
             }
           );
