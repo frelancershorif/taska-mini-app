@@ -292,114 +292,6 @@ function refreshTaskaBalance(
 
 
 // ======================================================
-// HOME STATISTICS
-// ======================================================
-
-function updateHomeStatistics() {
-
-  if (!taskaUser) {
-    return;
-  }
-
-
-  // -------------------------------
-  // TOTAL EARNINGS
-  // -------------------------------
-
-  const totalEarnings =
-    document.querySelector(
-      "#homeTotalEarnings"
-    );
-
-  if (totalEarnings) {
-
-    totalEarnings.textContent =
-      formatMoney(
-        taskaUser.total_earned ?? 0
-      );
-
-  }
-
-
-  // -------------------------------
-  // REFERRALS
-  // -------------------------------
-
-  const referrals =
-    document.querySelector(
-      "#homeReferrals"
-    );
-
-  if (referrals) {
-
-    referrals.textContent =
-      String(
-        taskaUser.referrals_count ?? 0
-      );
-
-  }
-
-
-  // -------------------------------
-  // TASKS COMPLETED
-  // -------------------------------
-
-  const tasksCompleted =
-    document.querySelector(
-      "#homeTasksCompleted"
-    );
-
-  if (tasksCompleted) {
-
-    tasksCompleted.textContent =
-      String(
-        taskaUser.tasks_completed ?? 0
-      );
-
-  }
-
-
-  // -------------------------------
-  // TOTAL WITHDRAWN
-  // -------------------------------
-
-  const totalWithdrawn =
-    document.querySelector(
-      "#homeTotalWithdrawn"
-    );
-
-  if (totalWithdrawn) {
-
-    totalWithdrawn.textContent =
-      formatMoney(
-        taskaUser.total_withdrawn ?? 0
-      );
-
-  }
-
-
-  console.log(
-    "Taska: Home statistics updated:",
-    {
-      total_earned:
-        taskaUser.total_earned ?? 0,
-
-      referrals:
-        taskaUser.referrals_count ?? 0,
-
-      tasks_completed:
-        taskaUser.tasks_completed ?? 0,
-
-      total_withdrawn:
-        taskaUser.total_withdrawn ?? 0
-    }
-  );
-
-}
-
-
-
-// ======================================================
 // TELEGRAM STARTUP
 // ======================================================
 
@@ -997,7 +889,6 @@ async function authenticateTaskaUser() {
 
     setupUserUI();
 
-			updateHomeStatistics();
 
     if (
       taskaUser &&
@@ -2276,6 +2167,35 @@ async function claimDailyCheckin(
     }
 
 
+if (
+  data.total_earned !==
+  undefined &&
+  data.total_earned !==
+  null
+) {
+
+  taskaUser.total_earned =
+    Number(
+      data.total_earned
+    );
+
+}
+
+
+if (
+  data.total_withdrawn !==
+  undefined &&
+  data.total_withdrawn !==
+  null
+) {
+
+  taskaUser.total_withdrawn =
+    Number(
+      data.total_withdrawn
+    );
+
+}
+
     // --------------------------------------------------
     // UPDATE CHECK-IN STATE FROM SERVER
     // --------------------------------------------------
@@ -2764,6 +2684,20 @@ function walletPage() {
     );
 
 
+  const totalEarned =
+    Number(
+      taskaUser?.total_earned ??
+      0
+    );
+
+
+  const totalWithdrawn =
+    Number(
+      taskaUser?.total_withdrawn ??
+      0
+    );
+
+
   return `
 
     ${pageHeader(
@@ -2805,6 +2739,20 @@ function walletPage() {
     </div>
 
 
+    <!-- WALLET STATISTICS -->
+
+    <div
+      class="section-title"
+    >
+
+      <h2>
+        ${icon("chart")}
+        Your Statistics
+      </h2>
+
+    </div>
+
+
     <div
       class="stats"
     >
@@ -2828,7 +2776,7 @@ function walletPage() {
 
 
           <strong>
-            ৳0.00
+            ${formatMoney(totalEarned)}
           </strong>
 
         </div>
@@ -2855,7 +2803,7 @@ function walletPage() {
 
 
           <strong>
-            ৳0.00
+            ${formatMoney(totalWithdrawn)}
           </strong>
 
         </div>
@@ -3327,9 +3275,6 @@ function loadPage(
 // ======================================================
 
 function setupHomeEvents() {
-
-  updateHomeStatistics();
-
 
   document
     .querySelectorAll(
@@ -4037,6 +3982,34 @@ async function claimTask(
 
     }
 
+if (
+  data.total_earned !==
+  undefined &&
+  data.total_earned !==
+  null
+) {
+
+  taskaUser.total_earned =
+    Number(
+      data.total_earned
+    );
+
+}
+
+
+if (
+  data.total_withdrawn !==
+  undefined &&
+  data.total_withdrawn !==
+  null
+) {
+
+  taskaUser.total_withdrawn =
+    Number(
+      data.total_withdrawn
+    );
+
+}
 
     taskStartTimes.delete(
       numericTaskId
