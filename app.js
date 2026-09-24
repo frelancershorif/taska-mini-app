@@ -284,8 +284,192 @@ function refreshTaskaBalance(
 
 
   console.log(
-    "Taska: Balance updated:",
-    number
+  "Taska: Balance updated:",
+  number
+);
+
+
+refreshHomeStatistics();
+
+}
+
+
+// ======================================================
+// REFRESH HOME STATISTICS
+// ======================================================
+
+function refreshHomeStatistics() {
+
+  if (!taskaUser) {
+
+    return;
+
+  }
+
+
+  const totalEarned =
+    Number(
+      taskaUser.total_earned ??
+      taskaUser.balance ??
+      0
+    );
+
+
+  const totalWithdrawn =
+    Number(
+      taskaUser.total_withdrawn ??
+      0
+    );
+
+
+  const referrals =
+    Number(
+      taskaUser.referrals_count ??
+      0
+    );
+
+
+  const tasksCompleted =
+    Number(
+      taskaUser.tasks_completed ??
+      0
+    );
+
+
+  document
+    .querySelectorAll(
+      ".stat-card"
+    )
+    .forEach(
+      (card) => {
+
+        const text =
+          card.textContent
+            .replace(
+              /\s+/g,
+              " "
+            )
+            .trim();
+
+
+        const value =
+          card.querySelector(
+            "strong"
+          );
+
+
+        if (!value) {
+
+          return;
+
+        }
+
+
+        // ----------------------------------------------
+        // TOTAL EARNINGS
+        // ----------------------------------------------
+
+        if (
+          text.includes(
+            "Total Earnings"
+          )
+        ) {
+
+          value.textContent =
+            formatMoney(
+              totalEarned
+            );
+
+        }
+
+
+        // ----------------------------------------------
+        // TOTAL EARNED
+        // Wallet page
+        // ----------------------------------------------
+
+        if (
+          text.includes(
+            "Total Earned"
+          )
+        ) {
+
+          value.textContent =
+            formatMoney(
+              totalEarned
+            );
+
+        }
+
+
+        // ----------------------------------------------
+        // REFERRALS
+        // ----------------------------------------------
+
+        if (
+          text.includes(
+            "Referrals"
+          ) ||
+          text.includes(
+            "Friends Referred"
+          )
+        ) {
+
+          value.textContent =
+            String(
+              referrals
+            );
+
+        }
+
+
+        // ----------------------------------------------
+        // TASKS COMPLETED
+        // ----------------------------------------------
+
+        if (
+          text.includes(
+            "Tasks Completed"
+          )
+        ) {
+
+          value.textContent =
+            String(
+              tasksCompleted
+            );
+
+        }
+
+
+        // ----------------------------------------------
+        // TOTAL WITHDRAWN
+        // ----------------------------------------------
+
+        if (
+          text.includes(
+            "Total Withdrawn"
+          )
+        ) {
+
+          value.textContent =
+            formatMoney(
+              totalWithdrawn
+            );
+
+        }
+
+      }
+    );
+
+
+  console.log(
+    "Taska: Home statistics updated:",
+    {
+      totalEarned,
+      totalWithdrawn,
+      referrals,
+      tasksCompleted
+    }
   );
 
 }
@@ -2196,6 +2380,7 @@ if (
 
 }
 
+ refreshHomeStatistics();
     // --------------------------------------------------
     // UPDATE CHECK-IN STATE FROM SERVER
     // --------------------------------------------------
@@ -3140,33 +3325,34 @@ function loadPage(
   // HOME
   // ====================================================
 
-  if (
-    page === "Home"
-  ) {
+ if (
+  page === "Home"
+) {
 
-    app.innerHTML =
-      initialHomeHTML;
-
-
-    setupUserUI();
+  app.innerHTML =
+    initialHomeHTML;
 
 
-    if (taskaUser) {
-
-      refreshTaskaBalance(
-        taskaUser.balance
-      );
-
-    }
+  setupUserUI();
 
 
-    setupHomeEvents();
+  if (taskaUser) {
 
+    refreshTaskaBalance(
+      taskaUser.balance
+    );
 
-    return;
+    refreshHomeStatistics();
 
   }
 
+
+  setupHomeEvents();
+
+
+  return;
+
+}
 
   // ====================================================
   // EARN
@@ -4010,6 +4196,10 @@ if (
     );
 
 }
+
+
+refreshHomeStatistics();
+
 
     taskStartTimes.delete(
       numericTaskId
